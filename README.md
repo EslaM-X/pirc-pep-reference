@@ -282,6 +282,28 @@ npm run transparency   # end-to-end demo snapshot
 npm run app            # live single-page Transparency Dashboard (localhost:8787)
 ```
 
+### Pi SDK integration & UX highlights (`app/index.html`)
+
+- **Official Pi SDK**: loads `pi-sdk.js`, `Pi.init({version:'2.0'})`, `Pi.authenticate(['username','payments'])` with graceful **preview mode** outside Pi Browser; a support payment flow (`Pi.createPayment`) demonstrates the U2A path.
+- **Bilingual EN/العربية** with full RTL layout switch, persisted per user.
+- Glassmorphism UI over an animated aurora · skeleton loaders · count-up numbers · reveal animations · toast notifications · medal ranks · HiDPI gradient-area canvas chart · `prefers-reduced-motion` respected · PWA manifest for standalone install.
+
+## 🎨 Identity & assets
+
+| Asset | File |
+|---|---|
+| Original brand artwork (verbatim, as supplied by the author) | [`app/assets/brand/identity-original.jpeg`](app/assets/brand/identity-original.jpeg) |
+| Vector app icon / favicon / PWA maskable icon | [`app/assets/icon.svg`](app/assets/icon.svg) |
+
+<p align="center">
+  <img src="app/assets/brand/identity-original.jpeg" alt="Pi Transparency brand identity" width="320">
+</p>
+
+Palette is driven by CSS custom properties (`--a1 #8a63ff`, `--a2 #5aa7ff`, `--a3 #3ddc97`, `--gold #f5c451`) — re-theming the whole app to match any brand source is a one-block edit.
+
+> Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company. This project is community-built and unaffiliated.
+
+
 **Scope discipline:** these modules describe AMM mathematics over
 caller-supplied reserves and verify authenticity of claims. They do not price,
 value, endorse or promote any asset, and they never fetch chain state — the

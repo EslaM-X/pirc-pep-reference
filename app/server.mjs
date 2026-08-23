@@ -118,7 +118,11 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml'
+  '.svg': 'image/svg+xml',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json'
 };
 
 export function createAppServer() {
@@ -137,6 +141,29 @@ export function createAppServer() {
         const html = await readFile(path.join(ROOT, 'index.html'));
         res.writeHead(200, { 'content-type': MIME['.html'] });
         res.end(html);
+        return;
+      }
+
+      if (url.pathname === '/manifest.webmanifest') {
+        const mf = await readFile(path.join(ROOT, 'manifest.webmanifest'));
+        res.writeHead(200, { 'content-type': MIME['.json'] });
+        res.end(mf);
+        return;
+      }
+
+      if (url.pathname.startsWith('/assets/')) {
+        const rel = url.pathname.slice('/assets/'.length);
+
+        if (!/^[\w./-]+$/.test(rel) || rel.includes('..')) {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end('{"error":"not found"}');
+          return;
+        }
+
+        const asset = await readFile(path.join(ROOT, 'assets', rel));
+        const ext = path.extname(rel).toLowerCase();
+        res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream' });
+        res.end(asset);
         return;
       }
 

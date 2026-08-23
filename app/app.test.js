@@ -33,6 +33,21 @@ test('server serves index and snapshot endpoints', async () => {
 
     const missing = await fetch(`http://127.0.0.1:${port}/nope`);
     assert.equal(missing.status, 404);
+
+    const manifest = await fetch(`http://127.0.0.1:${port}/manifest.webmanifest`);
+    assert.equal(manifest.status, 200);
+    assert.match(await manifest.text(), /Pi Transparency Dashboard/);
+
+    const icon = await fetch(`http://127.0.0.1:${port}/assets/icon.svg`);
+    assert.equal(icon.status, 200);
+    assert.match(icon.headers.get('content-type'), /svg/);
+
+    const brand = await fetch(`http://127.0.0.1:${port}/assets/brand/identity-original.jpeg`);
+    assert.equal(brand.status, 200);
+    assert.match(brand.headers.get('content-type'), /jpeg/);
+
+    const traversal = await fetch(`http://127.0.0.1:${port}/assets/../server.mjs`);
+    assert.equal(traversal.status, 404);
   } finally {
     server.close();
   }

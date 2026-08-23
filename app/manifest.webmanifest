@@ -1,0 +1,18 @@
+{
+  "name": "Pi Transparency Dashboard",
+  "short_name": "π Transparency",
+  "description": "Real-time mathematical floor, x·y=k invariant health, escrow lock attestations and verified engagement — powered by PEP/1 signed proofs.",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["finance", "utilities", "developer tools"],
+  "icons": [
+    { "src": "/assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
