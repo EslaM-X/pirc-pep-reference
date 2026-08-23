@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-23
+
+Transparency Layer — implements the ideas endorsed in the PiRC1 review:
+dynamic `p_floor`, `x·y=k` invariant tracking, verifiable escrow lock status,
+and the "Transparency Dashboard" concept.
+
+### Added
+
+- **`src/pfloor.js`** — pure constant-product mathematics: real-time
+  theoretical floor `p_floor = (R·Q)/(R+S)²` over circulating supply, average
+  realized price of the hypothetical full dump, and an invariant health report
+  that flags any decrease of `k` beyond a configurable tolerance (liquidity
+  extraction detection).
+- **`src/engagement.js`** — composite engagement scoring: Proof-of-Activity /
+  Proof-of-Utility split by action class, per-project weight manifests
+  clamped to protocol ceilings (projects may weigh down, never up), and a
+  Consistency Factor that rewards sustained presence over end-window bursts.
+  Inputs are restricted to `{event, verdict}` pairs whose verdict is a
+  successful `verifySignedEvent` result.
+- **`src/escrow.js`** — offline-verifiable escrow lock attestations: closed
+  schema, dedicated signature domain (`PiRC1-ESCROW-v1`), binding to the
+  revoked key's fingerprint, freshness window and replay guard. The optional
+  `anchor` field carries an on-chain commitment; the module never fetches
+  chain state.
+- **`src/dashboard.js`** — deterministic Transparency Dashboard snapshot
+  assembler fusing price floor, pool health, escrow lock status and the
+  engagement leaderboard into one JSON document.
+- `npm run transparency` — end-to-end demo; included in `npm run ci`.
+- `test/transparency.test.js` — 21 tests covering all four modules.
+
+### Not changed
+
+- PEP/1 wire format, canonicalization rules and committed vectors are
+  untouched; all pre-existing vectors verify byte-for-byte.
+
 ## [0.2.0] - 2026-08-23
 
 Hardening release addressing the external review: concurrency-safe replay
