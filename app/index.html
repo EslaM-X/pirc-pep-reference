@@ -172,6 +172,22 @@
   .pp-why summary{cursor:pointer;color:var(--gold);font-weight:600;font-size:14px;padding:6px 0}
   .pp-why[open] summary{margin-bottom:6px}
   @media(prefers-reduced-motion:reduce){.pp-step{animation:none;opacity:1;transform:none}}
+
+  /* Proof Passport */
+  .pass-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end}
+  .pass-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim);font-weight:700}
+  .pass-form input,.pass-form select{background:var(--glass2);color:var(--ink);border:1px solid var(--line);
+    border-radius:12px;padding:10px 12px;font-size:13.5px;font-family:inherit;outline:none;transition:border-color .2s}
+  .pass-form input:focus-visible,.pass-form select:focus-visible{border-color:var(--gold)}
+  #pass-out{width:100%;min-height:190px;resize:vertical;background:var(--glass2);color:var(--ink);
+    border:1px solid var(--line);border-radius:14px;padding:14px;font-size:12.5px;line-height:1.5;
+    outline:none;transition:border-color .2s}
+  #pass-out:focus-visible{border-color:var(--gold)}
+  .pass-head{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center;font-family:ui-monospace,monospace;
+    font-size:12px;color:var(--dim);padding:4px 0 8px}
+  .pass-head b{color:var(--ink)}
+  .pp-grouplabel{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--gold);
+    text-transform:uppercase;padding:6px 2px 0}
 </style>
 </head>
 <body>
@@ -282,6 +298,47 @@
       </div>
     </div>
   </section>
+
+  <!-- Proof Passport -->
+  <section class="card" id="pass-card">
+    <h2><span data-i18n="pass_h">AUREVIA Proof Passport</span>
+        <span class="badge neutral" data-i18n="pass_sub">One portable evidence record</span></h2>
+    <div class="pp-grid">
+      <div class="pp-left">
+        <div class="pass-form">
+          <label><span data-i18n="pass_class">Event class</span>
+            <select id="pass-class"><option value="A">A · high-value</option><option value="B">B · KYC</option><option value="C" selected>C · daily</option></select></label>
+          <label><span data-i18n="pass_action">Action</span>
+            <select id="pass-action"></select></label>
+          <label><span data-i18n="pass_weight">Weight (1–10000)</span>
+            <input id="pass-weight" type="number" min="1" max="10000" value="100"></label>
+          <label><span data-i18n="pass_subject">Subject (pseudonymous)</span>
+            <input id="pass-subject" type="text" maxlength="64" placeholder="alice-demo" spellcheck="false"></label>
+        </div>
+        <div class="pirow">
+          <button class="btn" id="pass-issue" data-i18n="pass_issue">Issue &amp; Sign</button>
+          <button class="btn ghost" id="pass-download" disabled data-i18n="pass_download">Download .json</button>
+          <button class="btn ghost" id="pass-share" disabled data-i18n="pass_share">Copy share link</button>
+          <button class="btn ghost" id="pass-send" disabled data-i18n="pass_send">Open in Explorer</button>
+          <label class="btn ghost" style="display:inline-flex;align-items:center">
+            <span data-i18n="pass_import">Import proof / passport</span>
+            <input id="pass-file" type="file" accept=".json,application/json" hidden>
+          </label>
+        </div>
+        <textarea id="pass-out" class="mono" spellcheck="false" aria-label="Passport JSON"
+                  placeholder='{ "type": "AUREVIA-Evidence-Passport", … }' readonly></textarea>
+      </div>
+      <div class="pp-right">
+        <div id="pass-verdict" class="pp-banner idle" data-i18n="pass_idle">AWAITING PASSPORT</div>
+        <div id="pass-head" class="pass-head" hidden></div>
+        <div id="pass-steps" class="pp-steps" aria-live="polite"></div>
+        <details class="pp-why">
+          <summary data-i18n="pass_why">Why carry a passport?</summary>
+          <p class="unit" data-i18n="pass_why_body"></p>
+        </details>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -338,7 +395,18 @@ const I18N = {
     pp_bad_json:"Invalid JSON",
     static_loaded:"Static snapshot (generated at deploy) — interactive verification needs the server",
     hero_1:"Don't trust the app. Verify the proof.",
-    hero_2:"PiProof lets applications issue cryptographically verifiable proofs that independent parties can verify against their own trusted state."
+    hero_2:"PiProof lets applications issue cryptographically verifiable proofs that independent parties can verify against their own trusted state.",
+    pass_h:"AUREVIA Proof Passport", pass_sub:"One portable evidence record",
+    pass_class:"Event class", pass_action:"Action", pass_weight:"Weight (1–10000)",
+    pass_subject:"Subject (pseudonymous)", pass_issue:"Issue & Sign",
+    pass_download:"Download .json", pass_share:"Copy share link",
+    pass_send:"Open in Explorer", pass_import:"Import proof / passport",
+    pass_idle:"AWAITING PASSPORT", pass_valid:"✓ PASSPORT VALID", pass_invalid:"✗ INVALID PASSPORT",
+    pass_created:"Proof issued & signed — passport ready",
+    share_copied:"Share link copied — anyone holding it can verify independently",
+    file_loaded:"File loaded into verifier", issue_fail:"Issuer rejected the request",
+    pass_why:"Why carry a passport?",
+    pass_why_body:"An Evidence Passport bundles signed PEP/1 events under one content-addressed evidence root, bound to a pseudonymous subject. The holder — not the platform — carries the evidence. Anyone with the file or its share link re-checks every signature against their own trusted registry: no account, no trust in the issuing app. Don't trust the platform; verify the claim."
   },
   ar:{
     title:"AUREVIA",
@@ -374,7 +442,18 @@ const I18N = {
     pp_bad_json:"JSON غير صالح",
     static_loaded:"لقطة ساكنة (مولّدة عند النشر) — التحقق التفاعلي يتطلب السيرفر",
     hero_1:"لا تثق بالتطبيق. تحقّق من الإثبات.",
-    hero_2:"PiProof يتيح للتطبيقات إصدار إثباتات تشفيرية قابلة للتحقق، يستطيع أي طرف مستقل التحقق منها مقابل حالته الموثوقة الخاصة."
+    hero_2:"PiProof يتيح للتطبيقات إصدار إثباتات تشفيرية قابلة للتحقق، يستطيع أي طرف مستقل التحقق منها مقابل حالته الموثوقة الخاصة.",
+    pass_h:"جواز إثبات AUREVIA", pass_sub:"سجل إثبات واحد محمول",
+    pass_class:"فئة الحدث", pass_action:"الإجراء", pass_weight:"الوزن (1–10000)",
+    pass_subject:"الموضوع (اسم مستعار)", pass_issue:"إصدار وتوقيع",
+    pass_download:"تنزيل .json", pass_share:"نسخ رابط المشاركة",
+    pass_send:"فتح في المستكشف", pass_import:"استيراد إثبات / جواز",
+    pass_idle:"بانتظار الجواز", pass_valid:"✓ الجواز صالح", pass_invalid:"✗ الجواز غير صالح",
+    pass_created:"تم إصدار الإثبات وتوقيعه — الجواز جاهز",
+    share_copied:"نُسخ رابط المشاركة — أي حامل له يستطيع التحقق بشكل مستقل",
+    file_loaded:"حُمّل الملف إلى المدقق", issue_fail:"رفض المُصدر الطلب",
+    pass_why:"لماذا تحمل جوازًا؟",
+    pass_why_body:"يجمع جواز الإثبات أحداث PEP/1 موقّعة تحت جذر إثبات واحد معنون بالمحتوى، مرتبط بموضوع يحمل اسمًا مستعارًا. الحامل — لا المنصة — هو من يحمل الدليل. أي شخص لديه الملف أو رابط المشاركة يعيد فحص كل توقيع مقابل سجله الموثوق الخاص: بلا حساب، وبلا ثقة في التطبيق المُصدر. لا تثق بالمنصة؛ تحقّق من الادعاء."
   }
 };
 let lang = localStorage.getItem('lang') || 'en';
@@ -545,6 +624,7 @@ async function ppLoadSample(){
     PP.sample=null;ppSetDisabled(true);
     $('pp-static').hidden=false;
     $('pp-in').placeholder=t('pp_static');
+    $('pass-issue').disabled=true;
   }
 }
 function renderProof(r){
@@ -557,17 +637,20 @@ function renderProof(r){
 }
 async function ppVerify(){
   if(PP.busy)return;
-  let proof;
-  try{proof=JSON.parse($('pp-in').value);}
+  let doc;
+  try{doc=JSON.parse($('pp-in').value);}
   catch(e){return toast(t('pp_bad_json'),'bad');}
+  const isPassport=doc&&typeof doc==='object'&&doc.type==='AUREVIA-Evidence-Passport';
   PP.busy=true;ppBanner('idle',t('pp_checking'));
   try{
-    const r=await fetch('api/verify-proof',{method:'POST',
+    const r=await fetch(isPassport?'api/verify-passport':'api/verify-proof',{method:'POST',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({proof})});
+      body:JSON.stringify(isPassport?{passport:doc}:{proof:doc})});
     const j=await r.json();
-    renderProof(j);
+    if(isPassport)renderPassport(j);else renderProof(j);
     if(j.code==='REPLAY_DETECTED')toast(t('pp_replay_toast'),'bad');
+    if(isPassport&&!j.ok&&document.getElementById('pass-card')){
+      passBanner('bad',t('pass_invalid'));document.getElementById('pass-card').scrollIntoView({behavior:'smooth',block:'start'});}
   }catch(e){toast('verifier unreachable: '+e.message,'bad');ppBanner('bad',t('pp_invalid'));}
   PP.busy=false;
 }
@@ -589,6 +672,106 @@ $('pp-tamper-s').onclick=()=>ppMutate(p=>{
   const s=p.event?.signature;if(typeof s!=='string'||s.length<2)throw new Error('no signature to flip');
   p.event.signature=(s===s.toUpperCase()&&/[A-Z]/.test(s))?s.slice(0,-1)+String.fromCharCode(s.charCodeAt(s.length-2)):s.split('').reverse().join('');
 },lang==='ar'?'تم قلب أحرف التوقيع':'signature bytes flipped');
+
+/* ---------- AUREVIA Proof Passport ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PASS_ACTIONS={A:['complete_transaction'],B:['finish_kyc_flow'],C:['daily_login']};
+const PASS={passport:null,busy:false};
+function passBanner(state,txt){const b=$('pass-verdict');b.className='pp-banner '+state;b.textContent=txt;}
+function stepHtml(s,i){
+  return `<div class="pp-step ${s.pass?'p':'f'}" style="animation-delay:${i*55}ms">
+     <span class="ic">${s.pass?'✓':'✗'}</span><span>${esc(s.label)}</span>
+     ${s.detail?`<small title="${String(s.detail).replace(/"/g,'&quot;')}">${esc(s.detail)}</small>`:''}
+   </div>`;
+}
+function renderPassport(r){
+  passBanner(r.ok?'ok':'bad',r.ok?t('pass_valid'):t('pass_invalid'));
+  const head=$('pass-head');
+  if(r.summary){
+    head.hidden=false;
+    head.innerHTML=`<span>${esc(t('pass_subject'))}: <b>${esc(r.summary.subject??'—')}</b></span>`+
+      `<span>proofs <b>${r.summary.proofs_valid}/${r.summary.proofs_total}</b></span>`+
+      `<span title="${esc(r.summary.evidence_root)}">root <b>${esc(String(r.summary.evidence_root).slice(0,14))}…</b></span>`;
+  }else head.hidden=true;
+  let html=r.steps.map(stepHtml).join('');
+  for(const res of r.results||[]){
+    html+=`<div class="pp-grouplabel">— proof #${res.index+1} —</div>`+res.steps.map(stepHtml).join('');
+  }
+  $('pass-steps').innerHTML=html;
+}
+function fillActions(){
+  const c=$('pass-class').value;
+  $('pass-action').innerHTML=PASS_ACTIONS[c].map(a=>`<option value="${a}">${a}</option>`).join('');
+}
+fillActions();
+$('pass-class').onchange=fillActions;
+$('pass-issue').onclick=async()=>{
+  if(PASS.busy)return;
+  PASS.busy=true;
+  try{
+    const r=await fetch('api/passport-issue',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        action_class:$('pass-class').value,
+        action_id:$('pass-action').value,
+        weight:Number($('pass-weight').value),
+        subject:$('pass-subject').value.trim()||undefined
+      })});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||t('issue_fail'));
+    PASS.passport=j.passport;
+    $('pass-out').value=JSON.stringify(j.passport,null,2);
+    ['pass-download','pass-share','pass-send'].forEach(id=>$(id).disabled=false);
+    toast(t('pass_created'),'ok');
+  }catch(e){toast(e.message,'bad');}
+  PASS.busy=false;
+};
+$('pass-download').onclick=()=>{
+  if(!PASS.passport)return;
+  const blob=new Blob([JSON.stringify(PASS.passport,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='proof-passport.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+};
+const b64u=s=>btoa(Array.from(new TextEncoder().encode(s),c=>String.fromCharCode(c)).join(''))
+  .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+$('pass-share').onclick=async()=>{
+  if(!PASS.passport)return;
+  const link=location.href.split('#')[0]+'#p='+b64u(JSON.stringify(PASS.passport));
+  try{await navigator.clipboard.writeText(link);toast(t('share_copied'),'ok');}
+  catch(e){window.prompt('',link);}
+};
+$('pass-send').onclick=()=>{
+  if(!PASS.passport)return;
+  $('pp-in').value=JSON.stringify(PASS.passport,null,2);
+  document.getElementById('pp-card').scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(ppVerify,350);
+};
+$('pass-file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  f.text().then(txt=>{
+    let j;try{j=JSON.parse(txt);}catch(_){return toast(t('pp_bad_json'),'bad');}
+    if(!j||typeof j!=='object'||(j.type!=='PiProof'&&j.type!=='AUREVIA-Evidence-Passport'))
+      return toast('unsupported type — expected PiProof or AUREVIA-Evidence-Passport','bad');
+    $('pp-in').value=JSON.stringify(j,null,2);
+    document.getElementById('pp-card').scrollIntoView({behavior:'smooth',block:'start'});
+    toast(t('file_loaded'),'ok');
+    setTimeout(ppVerify,400);
+  });
+  e.target.value='';
+};
+(function openShared(){
+  const m=(location.hash||'').match(/^#p=([A-Za-z0-9_-]+)$/);if(!m)return;
+  try{
+    const b=m[1].replace(/-/g,'+').replace(/_/g,'/');
+    const json=new TextDecoder().decode(Uint8Array.from(atob(b+'='.repeat((4-b.length%4)%4)),c=>c.charCodeAt(0)));
+    const j=JSON.parse(json);
+    if(!j||typeof j!=='object'||(j.type!=='PiProof'&&j.type!=='AUREVIA-Evidence-Passport'))return;
+    $('pp-in').value=JSON.stringify(j,null,2);
+    document.getElementById('pp-card').scrollIntoView({block:'start'});
+    setTimeout(ppVerify,500);
+  }catch(e){}
+})();
 
 /* ---------- boot ---------- */
 applyLang();

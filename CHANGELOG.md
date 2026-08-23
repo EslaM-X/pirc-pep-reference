@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-24
+
+### Added — AUREVIA Proof Passport: one portable evidence record
+
+The killer use case: the holder — not the platform — carries the evidence.
+*"Proofs you can carry. Evidence anyone can verify."*
+
+- **`AUREVIA-Evidence-Passport/1`** (`src/passport.js`) — bundles 1–100
+  PiProof envelopes under a single content-addressed `evidence_root`
+  (`e1:` SHA-256 over the canonical proof array), optionally bound to a
+  pseudonymous `subject` tag and a Trust Policy. Envelope validation runs
+  before any cryptography; root recomputation happens before signature
+  work; embedded proofs reuse the full PiProof checklist with per-proof
+  labeled steps; replay detection propagates to the passport verdict;
+  passport-stored policies narrow acceptance per holder.
+- **CLI**: `passport-create --proof p1.json [--proof p2.json …]
+  [--subject tag] [--policy p.json]` and `passport-verify` (full nested
+  report, exit code reflects the verdict). Repeated flags are now
+  collected into arrays in `parseArgs`.
+- **Server endpoints**: `GET /api/sample-passport`,
+  `POST /api/passport-issue` (catalog-validated demo issuer: class
+  A/B/C action whitelist, weight bounds, subject pattern),
+  `POST /api/verify-passport` (shares the live registry epoch + nonce
+  store, so replays across submissions are caught).
+- **Dashboard section "AUREVIA Proof Passport"** — Issue & Sign form,
+  Download `.json`, Copy share link (`#p=<base64url>` fragment — no
+  server-side storage, privacy-preserving), Open in Explorer, file
+  import that auto-routes proofs vs passports by `type`, and a grouped
+  verification report (summary header + top-level steps + per-proof
+  checklists). Full EN/AR i18n.
+- **Tests**: 82 total (was 69) — passport unit suite + HTTP API suite.
+
+### Fixed
+
+- Passport step labels render correctly in CLI output (top-level steps
+  previously printed `undefined` labels).
+
+### Documented
+
+- Epoch-binding lesson captured by tests: minting a second proof mutates
+  the registry, so earlier proofs must be minted after all eligibility
+  changes — eligibility preparation is separated from minting in tests.
+
 ## [0.7.2] - 2026-08-24
 
 ### Fixed — blank page root cause + identity rename
