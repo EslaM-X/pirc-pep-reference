@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-23
+
+### Changed — License
+
+- **Relicensed from `(MIT OR Apache-2.0)` to the PiOS License**, the Pi Open
+  Source license that permits development and use of derivative works solely
+  within the Pi Network ecosystem. `LICENSE-MIT` and `LICENSE-APACHE` were
+  removed; the canonical text now lives in `LICENSE`.
+- Added the required trademark notice: *Pi, Pi Network and the Pi logo are
+  trademarks of the Pi Community Company*, together with an explicit
+  community-built / not-affiliated statement.
+- Rationale: this repository is a Pi-ecosystem reference implementation and is
+  being submitted to the official PiOS App & Library list; listing requires
+  the unaltered PiOS license.
+
 ## [0.3.0] - 2026-08-23
 
 Transparency Layer — implements the ideas endorsed in the PiRC1 review:

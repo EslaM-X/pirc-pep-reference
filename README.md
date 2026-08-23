@@ -7,7 +7,7 @@
 **Deterministic. Signed. Replay-proof. Zero dependencies.**
 
 [![CI](https://github.com/EslaM-X/pirc-pep-reference/actions/workflows/ci.yml/badge.svg)](https://github.com/EslaM-X/pirc-pep-reference/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-blue.svg)](#-license--copyright)
+[![License](https://img.shields.io/badge/license-PiOS-teal.svg)](#-license--copyright)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen.svg)](https://nodejs.org)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success.svg)](#-zero-dependencies)
@@ -331,12 +331,14 @@ vector and test first.
 
 ## 📜 License & Copyright
 
-Dual-licensed under your choice of:
+Licensed under the **[PiOS License](LICENSE)** — the Pi Open Source license that
+permits unrestricted development and use of derivative works **within the Pi
+Network ecosystem**, keeping this reference implementation dedicated to the
+platform it was built for.
 
-- **MIT License** — [LICENSE-MIT](LICENSE-MIT)
-- **Apache License 2.0** — [LICENSE-APACHE](LICENSE-APACHE)
-
-SPDX: `(MIT OR Apache-2.0)` — the same convention used by the Rust ecosystem.
+> Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company.
+> This project is community-built and is not affiliated with, endorsed by, or
+> maintained by the Pi Core Team.
 
 Copyright © 2026 **EslaM-X** 🇪🇬 · All rights reserved where applicable by the
 chosen license terms.
