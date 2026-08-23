@@ -1,5 +1,5 @@
 {
-  "name": "pirc-pep-reference",
+  "name": "piproof",
   "version": "0.7.0",
   "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA — a Pi SDK-integrated cryptographic transparency dashboard.",
   "type": "module",
@@ -9,12 +9,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/EslaM-X/pirc-pep-reference.git"
+    "url": "https://github.com/EslaM-X/piproof.git"
   },
   "bugs": {
-    "url": "https://github.com/EslaM-X/pirc-pep-reference/issues"
+    "url": "https://github.com/EslaM-X/piproof/issues"
   },
-  "homepage": "https://github.com/EslaM-X/pirc-pep-reference#readme",
+  "homepage": "https://github.com/EslaM-X/piproof#readme",
   "engines": {
     "node": ">=18.0.0"
   },

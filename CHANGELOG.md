@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-24
+
+### Fixed — blank page root cause + identity rename
+
+- **Critical UI fix**: the dashboard rendered empty in real browsers — the
+  i18n block referenced the `$` helper before its `const` initialization
+  (TDZ ReferenceError killed the whole script; reveal-CSS then kept every
+  card at `opacity:0`). Fixes: `$` defined first, cards are visible by
+  default and only animate when JS is confirmed running (`html.js` gate),
+  plus a fail-safe force-reveal timer.
+- Hero line added under the header: *"Don't trust the app. Verify the
+  proof."* with the full positioning sentence (EN/AR).
+- Repository renamed to **EslaM-X/piproof** to match the product identity
+  (PEP/1 = protocol, PiProof = ecosystem/product, AUREVIA = dashboard);
+  all internal references updated; old URLs redirect automatically.
+
+## [0.7.1] - 2026-08-24
+
+- Static hosts (GitHub Pages) fall back to the deploy-time `snapshot.json`
+  with a gold STATIC status dot instead of showing OFFLINE.
+
 ## [0.7.0] - 2026-08-24
 
 ### Added — PiProof: portable proofs + Trust Policy Engine + Proof Explorer
@@ -253,6 +274,6 @@ embedder-robustness guarantees.
   (PR #2 requirement ↔ code ↔ test ↔ attack mapping).
 - Dual licensing under `(MIT OR Apache-2.0)`.
 
-[Unreleased]: https://github.com/EslaM-X/pirc-pep-reference/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/EslaM-X/pirc-pep-reference/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/EslaM-X/pirc-pep-reference/releases/tag/v0.1.0
+[Unreleased]: https://github.com/EslaM-X/piproof/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/EslaM-X/piproof/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/EslaM-X/piproof/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 {
   "schema": "PiRC1-TransparencyDashboard/1",
-  "generated_at": 1787521854277,
+  "generated_at": 1787523231953,
   "price_floor": {
     "circulating_supply": 12500000,
     "spot_price": 1.5,
@@ -14,23 +14,23 @@
     "snapshot_count": 5,
     "invariant_series": [
       {
-        "t": 1786312254277,
+        "t": 1786313631953,
         "k": 22815000000000
       },
       {
-        "t": 1786744254277,
+        "t": 1786745631953,
         "k": 24040000000000
       },
       {
-        "t": 1787089854277,
+        "t": 1787091231953,
         "k": 25215000000000
       },
       {
-        "t": 1787349054277,
+        "t": 1787350431953,
         "k": 25854500000000
       },
       {
-        "t": 1787521854277,
+        "t": 1787523231953,
         "k": 26460000000000
       }
     ],
@@ -47,7 +47,7 @@
     "escrow_id": "tge-escrow-main",
     "state": "SIGNING_AUTHORITY_REVOKED",
     "previous_key_fingerprint": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
-    "effective_at": 1787521854277,
+    "effective_at": 1787523231953,
     "anchor": "demo-anchor:0000000000000000000000000000000000000000",
     "checks": [
       {
