@@ -26,6 +26,7 @@
     "attacks": "node src/cli.js attacks",
     "demo": "node src/cli.js demo",
     "transparency": "node scripts/transparency-demo.mjs",
+    "app": "node app/server.mjs",
     "gen:vectors": "node scripts/gen-vectors.mjs && node scripts/check-vectors.mjs",
     "ci": "npm test && npm run attacks && npm run transparency && npm run gen:vectors"
   },
