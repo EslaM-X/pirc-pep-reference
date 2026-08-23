@@ -6,6 +6,7 @@ import { hashUid, newEvent, signEvent } from './events.js';
 import { generateKeyPair } from './keys.js';
 import { InMemoryNonceStore, FileNonceStore } from './nonces.js';
 import { verifyPiProof, toPiProof } from './piproof.js';
+import { createPassport, verifyPassport } from './passport.js';
 import { createRegistry, registerApp, registerKey, revokeKey, markEligible } from './registry.js';
 import { verifySignedEvent } from './verify.js';
 
@@ -24,7 +25,12 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next !== undefined && !next.startsWith('--')) {
-        flags[key] = next;
+        if (key in flags) {
+          if (!Array.isArray(flags[key])) flags[key] = [flags[key]];
+          flags[key].push(next);
+        } else {
+          flags[key] = next;
+        }
         i++;
       } else {
         flags[key] = true;
@@ -81,6 +87,39 @@ function printProofResult(result) {
   }
 }
 
+function printPassportResult(result) {
+  for (const s of result.steps) {
+    const mark = s.pass ? `${GREEN} ✓ ${RESET}` : `${RED} ✗ ${RESET}`;
+    console.log(` ${mark} ${s.label}${s.detail ? `  ${DIM}(${s.detail})${RESET}` : ''}`);
+  }
+  for (const r of result.results) {
+    console.log(`\n${DIM}[ proof #${r.index + 1} ]${RESET}`);
+    for (const s of r.steps) {
+      const mark = s.pass ? `${GREEN} ✓ ${RESET}` : `${RED} ✗ ${RESET}`;
+      console.log(` ${mark} ${s.label}${s.detail ? `  ${DIM}(${s.detail})${RESET}` : ''}`);
+    }
+    if (r.policy && r.policy.violations.length > 0) {
+      console.log(`${RED}Policy violations:${RESET}`);
+      for (const v of r.policy.violations) {
+        console.log(`   ${RED}·${RESET} ${v.rule}: ${v.detail}`);
+      }
+    }
+  }
+  if (result.summary) {
+    console.log('');
+    const s = result.summary;
+    console.log(
+      `${DIM}subject: ${s.subject ?? '(none)'} · proofs valid: ${s.proofs_valid}/${s.proofs_total} · evidence_root: ${s.evidence_root}${RESET}`
+    );
+  }
+  console.log('');
+  if (result.ok) {
+    console.log(`${BOLD}${GREEN}VERDICT: PASSPORT VALID — proofs you can carry, evidence anyone can verify.${RESET}`);
+  } else {
+    console.log(`${BOLD}${RED}VERDICT: INVALID PASSPORT [${result.code}]${RESET}`);
+  }
+}
+
 const HELP = `pep - Programmable Engagement Proofs reference implementation
 
 Usage:
@@ -97,12 +136,20 @@ Commands:
   proof-export --event signed.json [--registry registry.json] [--out proof.json]
   proof-verify --proof proof.json --registry registry.json [--policy policy.json]
                [--nonces nonces.jsonl] [--now <unix-ms>]
+  passport-create --proof p1.json [--proof p2.json ...] [--subject tag]
+                  [--policy policy.json] [--now <unix-ms>] [--out passport.json]
+  passport-verify --passport passport.json --registry registry.json [--policy policy.json]
+                  [--nonces nonces.jsonl] [--now <unix-ms>]
   attacks      run the full adversarial suite
   demo         end-to-end walkthrough
 
 PiProof: a portable envelope around one signed PEP/1 event. Any party holding
 the proof + the verifier's own registry copy can independently confirm every
 claim without trusting the issuing application.
+
+AUREVIA Evidence Passport/1: one portable evidence record bundling PiProof
+envelopes under a content-addressed evidence root — carry your evidence,
+verify it anywhere.
 `;
 
 function cmdKeygen(flags) {
@@ -223,6 +270,42 @@ function cmdProofVerify(flags) {
   process.exitCode = result.ok ? 0 : 1;
 }
 
+function cmdPassportCreate(flags) {
+  const proofFiles = Array.isArray(flags.proof) ? flags.proof : flags.proof ? [flags.proof] : [];
+  if (proofFiles.length === 0) {
+    console.error('passport-create requires at least one --proof file');
+    process.exitCode = 1;
+    return;
+  }
+  const proofs = proofFiles.map((f) => readJson(f));
+  const policy = flags.policy ? readJson(flags.policy) : null;
+  const passport = createPassport({
+    proofs,
+    subject: flags.subject ? String(flags.subject) : null,
+    policy,
+    createdAt: flags.now ? Number(flags.now) : Date.now()
+  });
+  if (flags.out) {
+    writeJson(flags.out, passport);
+    console.log(`AUREVIA Evidence Passport written to ${flags.out} (${proofs.length} proof${proofs.length > 1 ? 's' : ''})`);
+  } else {
+    console.log(JSON.stringify(passport, null, 2));
+  }
+}
+
+function cmdPassportVerify(flags) {
+  const passport = readJson(flags.passport);
+  const registry = readJson(flags.registry);
+  const policy = flags.policy ? readJson(flags.policy) : null;
+  const nonceStore = flags.nonces
+    ? new FileNonceStore(flags.nonces)
+    : new InMemoryNonceStore();
+  const now = flags.now ? Number(flags.now) : Date.now();
+  const result = verifyPassport(passport, { registry, nonceStore, now, policyOverride: policy });
+  printPassportResult(result);
+  process.exitCode = result.ok ? 0 : 1;
+}
+
 function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const command = positional[0];
@@ -237,6 +320,8 @@ function main() {
     case 'verify': return cmdVerify(flags);
     case 'proof-export': return cmdProofExport(flags);
     case 'proof-verify': return cmdProofVerify(flags);
+    case 'passport-create': return cmdPassportCreate(flags);
+    case 'passport-verify': return cmdPassportVerify(flags);
     case 'attacks': {
       const results = runAttackSuite();
       console.log(formatAttackReport(results));

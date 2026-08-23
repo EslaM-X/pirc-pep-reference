@@ -328,6 +328,36 @@ server code path, with a one-click Tamper Lab (mutate weight → invalid;
 flip signature → invalid) and live replay catching. "Don't trust the app —
 verify the proof."
 
+## 🎫 AUREVIA Proof Passport (v0.8.0)
+
+> **One portable evidence record. Independently verifiable anywhere.**
+> *Proofs you can carry. Evidence anyone can verify.*
+
+A passport bundles 1–100 PiProof envelopes under a single
+content-addressed `evidence_root`, optionally bound to a pseudonymous
+`subject` and a Trust Policy. The holder — not the platform — carries the
+evidence: App A issues it, the holder takes it to App B, App C or an
+auditor, and each verifies independently against their own trusted state.
+
+```bash
+# bundle signed proofs into a passport
+pep passport-create --proof p1.json --proof p2.json \
+  --subject alice-demo --policy policy.json --out passport.json
+
+# verify anywhere — nested report, deterministic verdict
+pep passport-verify --passport passport.json --registry registry.json
+```
+
+Verification layers: passport envelope → evidence-root recomputation →
+every embedded proof's full checklist → passport-stored policy.
+Replay detection propagates from any embedded proof to the final verdict.
+
+In AUREVIA the Passport section lets you **Issue & Sign**, **Download
+`.json`**, and share a verification link (`#p=…` URL fragment — no
+server-side storage; anyone holding the link can re-verify). The Tamper
+Lab applies to passports too: mutate anything inside and the evidence
+root breaks before signatures are even checked.
+
 **Trust boundaries are documented, not hidden:** registry authenticity,
 nonce-store durability/distribution requirements, and audit status live in
 [docs/TRUST_BOUNDARIES.md](docs/TRUST_BOUNDARIES.md). This project is not

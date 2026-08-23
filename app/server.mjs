@@ -11,6 +11,7 @@ import { generateKeyPair, randomNonce } from '../src/keys.js';
 import { createRevocationAttestation } from '../src/escrow.js';
 import { assembleSnapshot } from '../src/dashboard.js';
 import { toPiProof, verifyPiProof } from '../src/piproof.js';
+import { createPassport, verifyPassport } from '../src/passport.js';
 
 /**
  * Pi Transparency App — local preview server.
@@ -49,6 +50,75 @@ export function makeSampleProof(now = Date.now()) {
   event.pioneer_uid_hash = hashUid('pioneer-alice', SUITE_UID_SECRET);
   const signed = signEvent(event, PROOF_WORLD.currentKey.private_key_pem);
   return toPiProof(signed, { registry: PROOF_WORLD.registry });
+}
+
+const ACTION_CATALOG = Object.freeze({
+  A: ['complete_transaction'],
+  B: ['finish_kyc_flow'],
+  C: ['daily_login']
+});
+const SUBJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
+
+function issueSignedProof({ actionClass, actionId, weight, pioneerUid }, now = Date.now()) {
+  const event = newEvent({
+    app_id: 'demo-app',
+    key_id: 'k-2026-active',
+    action_class: actionClass,
+    action_id: actionId,
+    weight,
+    pioneer_uid: 'x',
+    uidSecret: SUITE_UID_SECRET,
+    now
+  });
+  event.pioneer_uid_hash = hashUid(pioneerUid, SUITE_UID_SECRET);
+  return toPiProof(signEvent(event, PROOF_WORLD.currentKey.private_key_pem), {
+    registry: PROOF_WORLD.registry
+  });
+}
+
+export function makeSamplePassport(now = Date.now()) {
+  const proofs = [
+    issueSignedProof({ actionClass: 'A', actionId: 'complete_transaction', weight: 50, pioneerUid: 'pioneer-alice' }, now),
+    issueSignedProof({ actionClass: 'B', actionId: 'finish_kyc_flow', weight: 8, pioneerUid: 'pioneer-alice' }, now)
+  ];
+  return createPassport({ proofs, subject: 'alice-demo', createdAt: now });
+}
+
+const DEMO_HOLDERS = Object.freeze({
+  'alice-demo': 'pioneer-alice',
+  'bob-demo': 'pioneer-bob'
+});
+
+export function issuePassport({ action_class, action_id, weight, subject } = {}, now = Date.now()) {
+  if (!ACTION_CATALOG[action_class]) {
+    throw new Error('action_class must be one of A, B or C');
+  }
+  if (!ACTION_CATALOG[action_class].includes(action_id)) {
+    throw new Error(`action_id "${String(action_id)}" is not offered by the demo issuer for class ${action_class}`);
+  }
+  const w = Number(weight);
+  if (!Number.isSafeInteger(w) || w < 1 || w > 10000) {
+    throw new Error('weight must be an integer between 1 and 10000');
+  }
+  if (subject !== undefined && subject !== null && subject !== '' &&
+      (typeof subject !== 'string' || !SUBJECT_RE.test(subject))) {
+    throw new Error('subject must match [A-Za-z0-9][A-Za-z0-9._:-]{0,63}');
+  }
+  const subj = subject === undefined || subject === null || subject === '' ? null : String(subject);
+  const proof = issueSignedProof(
+    { actionClass: action_class, actionId: action_id, weight: w, pioneerUid: DEMO_HOLDERS[subj] ?? 'pioneer-alice' },
+    now
+  );
+  return createPassport({ proofs: [proof], subject: subj, createdAt: now });
+}
+
+export function verifySubmittedPassport(passport, policy) {
+  return verifyPassport(passport, {
+    registry: PROOF_WORLD.registry,
+    nonceStore: PROOF_NONCES,
+    now: Date.now(),
+    policyOverride: policy ?? null
+  });
 }
 
 function buildWorld(now) {
@@ -194,6 +264,69 @@ export function createAppServer() {
           now: Date.now(),
           policy: parsed.policy ?? null
         });
+        const body = JSON.stringify(result);
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/sample-passport') {
+        const passport = makeSamplePassport();
+        const body = JSON.stringify({ passport });
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/passport-issue' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 65_536) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"request too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        try {
+          const passport = issuePassport(parsed);
+          const body = JSON.stringify({ passport });
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(body);
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/api/verify-passport' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 262_144) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"passport too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        const result = verifySubmittedPassport(parsed.passport ?? null, parsed.policy ?? null);
         const body = JSON.stringify(result);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
