@@ -7,6 +7,7 @@ import { generateKeyPair } from './keys.js';
 import { InMemoryNonceStore, FileNonceStore } from './nonces.js';
 import { verifyPiProof, toPiProof } from './piproof.js';
 import { createPassport, verifyPassport } from './passport.js';
+import { buildDisputeReport } from './dispute.js';
 import { createRegistry, registerApp, registerKey, revokeKey, markEligible } from './registry.js';
 import { verifySignedEvent } from './verify.js';
 
@@ -140,6 +141,8 @@ Commands:
                   [--policy policy.json] [--now <unix-ms>] [--out passport.json]
   passport-verify --passport passport.json --registry registry.json [--policy policy.json]
                   [--nonces nonces.jsonl] [--now <unix-ms>]
+  dispute       --doc passport-or-proof.json [--registry registry.json] [--policy policy.json]
+                [--nonces nonces.jsonl] [--now <unix-ms>] [--out dispute-report.json]
   attacks      run the full adversarial suite
   demo         end-to-end walkthrough
 
@@ -306,6 +309,40 @@ function cmdPassportVerify(flags) {
   process.exitCode = result.ok ? 0 : 1;
 }
 
+function cmdDispute(flags) {
+  const doc = readJson(flags.doc);
+  const registry = flags.registry ? readJson(flags.registry) : null;
+  const policy = flags.policy ? readJson(flags.policy) : null;
+  const nonceStore = flags.nonces
+    ? new FileNonceStore(flags.nonces)
+    : new InMemoryNonceStore();
+  const now = flags.now ? Number(flags.now) : Date.now();
+  const report = buildDisputeReport({ doc, registry, nonceStore, now, policy });
+
+  const MARK = { OK: `${GREEN}✓${RESET}`, VALID: `${GREEN}✓${RESET}`, INVALID: `${RED}✗${RESET}`, UNVERIFIABLE: `${BOLD}?${RESET}` };
+  console.log(`${BOLD}AUREVIA Dispute Report${RESET} · ${DIM}v${report.version}${RESET}\n`);
+  for (const c of report.chain) {
+    const mark = MARK[c.status] ?? '?';
+    const answer = typeof c.answer === 'object' && c.answer !== null
+      ? JSON.stringify(c.answer)
+      : String(c.answer);
+    console.log(` ${mark} ${c.question.replace(/_/g, ' ')}  ${DIM}${answer.slice(0, 110)}${RESET}`);
+  }
+  console.log('');
+  if (report.verdict === 'VALID') {
+    console.log(`${BOLD}${GREEN}DISPUTE VERDICT: VALID${RESET}`);
+  } else if (report.verdict === 'INVALID') {
+    console.log(`${BOLD}${RED}DISPUTE VERDICT: INVALID${RESET}`);
+  } else {
+    console.log(`${BOLD}DISPUTE VERDICT: UNVERIFIABLE — this verifier lacks the inputs to adjudicate${RESET}`);
+  }
+  if (flags.out) {
+    writeJson(flags.out, report);
+    console.log(`report written to ${flags.out}`);
+  }
+  process.exitCode = report.verdict === 'VALID' ? 0 : report.verdict === 'INVALID' ? 1 : 2;
+}
+
 function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const command = positional[0];
@@ -322,6 +359,7 @@ function main() {
     case 'proof-verify': return cmdProofVerify(flags);
     case 'passport-create': return cmdPassportCreate(flags);
     case 'passport-verify': return cmdPassportVerify(flags);
+    case 'dispute': return cmdDispute(flags);
     case 'attacks': {
       const results = runAttackSuite();
       console.log(formatAttackReport(results));
