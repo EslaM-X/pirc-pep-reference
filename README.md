@@ -50,6 +50,11 @@ It implements exactly what was discussed there, nothing more:
 - [Architecture](#-architecture)
 - [Project map](#-project-map)
 - [Usage](#-usage)
+- [Transparency Layer (v0.3)](#-transparency-layer-v03)
+- [PiProof — portable verifiable proofs (v0.7.0)](#-piproof--portable-verifiable-proofs-v070)
+- [AUREVIA Proof Passport (v0.8.0)](#-aurevia-proof-passport-v080)
+- [AUREVIA Evidence Network (v0.9.0)](#%EF%B8%8F-aurevia-evidence-network-v090)
+- [AUREVIA — product identity](#%EF%B8%8F-aurevia--product-identity)
 - [Roadmap](#-roadmap)
 - [Security](#-security)
 - [Contributing](#-contributing)
@@ -83,6 +88,10 @@ It implements exactly what was discussed there, nothing more:
 | 🔑 | **Key rotation & revocation** | `key_id` indirection, instant revocation path |
 | 🧪 | **Adversarial suite** | 20 attacks, each rejected with its exact error code |
 | 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier |
+| 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment |
+| ⚖️ | **Dispute Engine** | claim→verdict adjudication chain; three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass |
+| 🔀 | **Cross-application proofs** | independent issuers share one verifier epoch; multi-issuer passports verify against a single trusted state |
+| 🤖 | **Agent Evidence** | AI accountability: signed agent actions become portable, independently verifiable audit trails |
 | 📦 | **Zero dependencies** | runtime uses Node.js stdlib only — no supply-chain surface |
 
 ---
@@ -93,7 +102,7 @@ It implements exactly what was discussed there, nothing more:
 git clone https://github.com/EslaM-X/piproof.git
 cd piproof
 
-npm test          # unit + integration tests        → 38/38 ✔
+npm test          # unit + integration tests        → 91/91 ✔
 npm run attacks   # adversarial suite               → 20/20 rejected ✔
 npm run demo      # end-to-end walkthrough          → deterministic verdicts
 ```
@@ -210,8 +219,20 @@ piproof/
 │   ├── registry.js      app/key registry + eligibility registry
 │   ├── nonces.js        InMemory + file-backed nonce stores (atomic claimIfAbsent)
 │   ├── verify.js        ★ the deterministic 9-step pipeline
+│   ├── escrow.js        SIGNING_AUTHORITY_REVOKED attestations (v0.3)
+│   ├── pfloor.js        dynamic price floor + invariant health (v0.3)
+│   ├── engagement.js    PoA/PoU scoring + consistency factor (v0.3)
+│   ├── dashboard.js     deterministic snapshot assembly (v0.3)
+│   ├── piproof.js       ★ PiProof/1 portable proof envelope + verifier (v0.7)
+│   ├── policy.js        Trust Policy Engine — post-crypto acceptance (v0.7)
+│   ├── passport.js      ★ AUREVIA-Evidence-Passport/1 (v0.8)
+│   ├── dispute.js       ★ Dispute Engine — claim→verdict chain (v0.9)
 │   ├── attacks.js       the adversarial suite
-│   └── cli.js           keygen / init-reg / add-key / sign / verify / demo
+│   └── cli.js           keygen / init-reg / sign / verify / proof-* / passport-* / dispute
+├── app/
+│   ├── index.html       AUREVIA dashboard · Explorer · Passport · Dispute · Agent Evidence
+│   ├── server.mjs       Node host: snapshot + sample/issue/verify/dispute APIs
+│   └── verify.html      public verification page (/verify#p=<document>)
 ├── schema/
 │   └── engagement-event.schema.json   JSON Schema description
 ├── scripts/
@@ -224,7 +245,12 @@ piproof/
 │   ├── trust-boundary.test.js what a lying issuer can & cannot do
 │   ├── attacks.test.js        the full adversarial matrix
 │   ├── hardening.test.js      atomicity, durability, reproducibility, pollution
-│   └── cli.test.js            CLI end-to-end
+│   ├── cli.test.js            CLI end-to-end
+│   ├── transparency.test.js   p_floor / invariant / engagement / escrow / snapshot
+│   ├── piproof.test.js        portable proofs + policy engine
+│   ├── passport.test.js       Evidence Passport unit suite
+│   ├── passport-api.test.js   HTTP APIs incl. cross-issuer & agent evidence
+│   └── dispute.test.js        dispute chain three-state honesty
 ├── vectors/
 │   ├── valid/signed-event.json        the one true positive vector
 │   ├── registry.json                  vector world state
@@ -246,6 +272,18 @@ node src/cli.js add-key   --registry registry.json --app acme-app --key-id k1 --
 # verifier side
 node src/cli.js sign   --event event.json --key keys/dev.json --out signed.json
 node src/cli.js verify --event signed.json --registry registry.json --nonces nonces.jsonl
+
+# portable proofs (v0.7)
+node src/cli.js proof-export --event signed.json --registry registry.json --out proof.json
+node src/cli.js proof-verify --proof proof.json --registry registry.json --policy policy.json
+
+# evidence passports (v0.8)
+node src/cli.js passport-create --proof proof.json [--proof p2.json …] \
+  --subject alice-demo --policy policy.json --out passport.json
+node src/cli.js passport-verify --passport passport.json --registry registry.json
+
+# dispute engine (v0.9)
+node src/cli.js dispute --doc passport.json --registry registry.json --out dispute-report.json
 ```
 
 Library API:
@@ -448,10 +486,14 @@ themselves.
 | Phase | Version | Scope | Status |
 |---|---|---|---|
 | I | `v0.1.x` | reference implementation, vectors, adversarial suite, cross-language verification | ✅ shipped |
-| II | `v0.2` | conformance harness for third-party implementers, more vectors, fuzzed schema edges | ✅ shipped |
+| II | `v0.2` | conformance harness for third-party implementers, more vectors, fuzzed schema edges, hardening suite | ✅ shipped |
 | III | `v0.3` | Transparency Layer: dynamic p_floor, invariant tracking, escrow attestations, dashboard engine, engagement scoring | ✅ shipped |
-| IV | `v0.4` | pluggable storage backends for nonce stores, observability hooks | 🔜 next |
-| V | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
+| — | `v0.5–v0.6` | transparency app hardening, AUREVIA identity & rebrand | ✅ shipped |
+| V | `v0.7` | **PiProof**: portable proofs (`PiProof/1`), Trust Policy Engine, Proof Explorer, SHA-pinned CI, Pages deployment | ✅ shipped |
+| VI | `v0.8` | **AUREVIA Proof Passport**: Issue/Export/Import/Verify/Share/Tamper/Report, evidence roots | ✅ shipped |
+| VII | `v0.9` | **Evidence Network**: public verification page, Dispute Engine (VALID/INVALID/UNVERIFIABLE), cross-application proofs, Agent Evidence | ✅ shipped |
+| VIII | `v0.10` | pluggable storage backends for nonce stores (Redis et al.), observability hooks — the horizontal-scaling enabler | 🔜 next |
+| IX | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
 > feedback — not before.
