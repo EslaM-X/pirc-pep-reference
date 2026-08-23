@@ -288,20 +288,43 @@ npm run app            # live single-page Transparency Dashboard (localhost:8787
 - **Bilingual EN/العربية** with full RTL layout switch, persisted per user.
 - Glassmorphism UI over an animated aurora · skeleton loaders · count-up numbers · reveal animations · toast notifications · medal ranks · HiDPI gradient-area canvas chart · `prefers-reduced-motion` respected · PWA manifest for standalone install.
 
-## 🎨 Identity & assets
+## 🛡️ AUREVIA — product identity
 
-| Asset | File |
+> ### AUREVIA
+> **Trust. Verified. Transparent.**
+> Cryptographic transparency infrastructure for decentralized ecosystems.
+
+AUREVIA is an independent product brand: an infrastructure / security-grade
+visual language (deep navy-black · metallic gold · cryptographic shield mark ·
+engineering typography). It is deliberately **not** a "${chain} fan app":
+the Pi integration inside the dashboard is an *ecosystem adapter*, and the
+brand can extend to other decentralized ecosystems without renaming.
+
+| Element | Value |
 |---|---|
-| Original brand artwork (verbatim, as supplied by the author) | [`app/assets/brand/identity-original.jpeg`](app/assets/brand/identity-original.jpeg) |
-| Vector app icon / favicon / PWA maskable icon | [`app/assets/icon.svg`](app/assets/icon.svg) |
+| Brand | AUREVIA |
+| Tagline | Trust. Verified. Transparent. |
+| Product line | Cryptographic transparency infrastructure for decentralized ecosystems |
+| Mark | cryptographic shield — [`app/assets/icon.svg`](app/assets/icon.svg) (favicon + maskable PWA icon) |
+| Original artwork | preserved verbatim — [`app/assets/brand/identity-original.jpeg`](app/assets/brand/identity-original.jpeg) |
 
 <p align="center">
-  <img src="app/assets/brand/identity-original.jpeg" alt="Pi Transparency brand identity" width="320">
+  <img src="app/assets/brand/identity-original.jpeg" alt="AUREVIA brand identity" width="320">
 </p>
 
-Palette is driven by CSS custom properties (`--a1 #8a63ff`, `--a2 #5aa7ff`, `--a3 #3ddc97`, `--gold #f5c451`) — re-theming the whole app to match any brand source is a one-block edit.
+Product focus stays fixed on one spine: **Evidence → Verification →
+Transparency**. No tokens, no social features, no feature creep.
 
-> Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company. This project is community-built and unaffiliated.
+**Environment status:** Pi Browser-ready (`npm run app`). Mainnet listing is
+pending Developer Portal registration and live-environment testing — claims
+are kept at exactly that level until then.
+
+Palette is driven by CSS custom properties (`--a1 #8a63ff`,
+`--a2 #5aa7ff`, `--a3 #3ddc97`, `--gold #f5c451`) — re-theming is a
+one-block edit.
+
+> Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company.
+> This project is community-built and unaffiliated.
 
 
 **Scope discipline:** these modules describe AMM mathematics over

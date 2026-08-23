@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-24
+
+### Changed — product rebrand: AUREVIA + positioning discipline
+
+- The dashboard is now **AUREVIA** — *Trust. Verified. Transparent.* —
+  cryptographic transparency infrastructure for decentralized ecosystems.
+  Independent brand: navy-black / metallic-gold shield mark (no chain logo in
+  the brand), engineering typography, expandable beyond a single ecosystem.
+- Pi integration is explicitly positioned as an **ecosystem adapter**; the
+  product spine stays Evidence → Verification → Transparency.
+- Preview-mode messaging made precise: *"Pi environment unavailable —
+  running in preview mode."*
+- Claims normalized to **"Pi Browser-ready"**: Mainnet listing is stated as
+  pending Developer Portal registration and live-environment testing, and
+  nothing more.
+- `app/assets/icon.svg` replaced with the AUREVIA cryptographic shield;
+  original author artwork remains preserved verbatim at
+  `app/assets/brand/identity-original.jpeg`.
+- PWA manifest, package description and keywords updated to the AUREVIA
+  identity.
+
 ## [0.6.0] - 2026-08-24
 
 ### Added — Pi SDK integration + full UX/UI overhaul
