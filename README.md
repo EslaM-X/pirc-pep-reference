@@ -284,6 +284,10 @@ node src/cli.js passport-verify --passport passport.json --registry registry.jso
 
 # dispute engine (v0.9)
 node src/cli.js dispute --doc passport.json --registry registry.json --out dispute-report.json
+
+# or, once installed (`npm i -g .`), documents can be passed positionally:
+npx piproof passport-verify proof-passport.json --registry registry.json
+npx piproof dispute dispute-report.json --registry registry.json
 ```
 
 Library API:
@@ -492,8 +496,9 @@ themselves.
 | V | `v0.7` | **PiProof**: portable proofs (`PiProof/1`), Trust Policy Engine, Proof Explorer, SHA-pinned CI, Pages deployment | ✅ shipped |
 | VI | `v0.8` | **AUREVIA Proof Passport**: Issue/Export/Import/Verify/Share/Tamper/Report, evidence roots | ✅ shipped |
 | VII | `v0.9` | **Evidence Network**: public verification page, Dispute Engine (VALID/INVALID/UNVERIFIABLE), cross-application proofs, Agent Evidence | ✅ shipped |
-| VIII | `v0.10` | pluggable storage backends for nonce stores (Redis et al.), observability hooks — the horizontal-scaling enabler | 🔜 next |
-| IX | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
+| VIII | `v0.10` | **Killer-demo perfection**: guided 60-second demo, issuer picker, short public links (`/p/<id>`), installable `piproof` CLI with positional args | ✅ shipped |
+| IX | `v0.11` | pluggable storage backends for nonce stores (Redis et al.), observability hooks — the horizontal-scaling enabler | 🔜 next |
+| X | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
 > feedback — not before.

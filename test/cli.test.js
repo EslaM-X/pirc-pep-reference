@@ -88,3 +88,67 @@ test('end-to-end: keygen, registry, sign, verify accept then replay reject', () 
 
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('portable proofs & passports verify with positional file arguments', () => {
+  const dir = tmpdir();
+
+  execFileSync(process.execPath, [CLI, 'keygen', '--out', 'keys/dev.json'], { cwd: dir });
+  execFileSync(process.execPath, [CLI, 'init-reg', '--out', 'registry.json', '--app', 'acme-app'], { cwd: dir });
+  execFileSync(
+    process.execPath,
+    [CLI, 'add-key', '--registry', 'registry.json', '--app', 'acme-app', '--key-id', 'k1', '--pub', 'keys/dev.json'],
+    { cwd: dir }
+  );
+
+  const uidHash = hashUid('dev-user', DEV_UID_SECRET);
+  execFileSync(
+    process.execPath,
+    [CLI, 'eligible', '--registry', 'registry.json', '--uid-hash', uidHash],
+    { cwd: dir }
+  );
+
+  const event = {
+    v: 1,
+    app_id: 'acme-app',
+    key_id: 'k1',
+    action_class: 'B',
+    action_id: 'finish_lesson',
+    weight: 7,
+    timestamp: Date.now(),
+    nonce: 'cd'.repeat(16),
+    pioneer_uid_hash: uidHash,
+    eligibility: { kyc_passed: true, mainnet_migrated: true }
+  };
+  fs.writeFileSync(path.join(dir, 'event.json'), JSON.stringify(event, null, 2));
+
+  execFileSync(
+    process.execPath,
+    [CLI, 'sign', '--event', 'event.json', '--key', 'keys/dev.json', '--out', 'signed.json'],
+    { cwd: dir }
+  );
+  execFileSync(
+    process.execPath,
+    [CLI, 'proof-export', '--event', 'signed.json', '--registry', 'registry.json', '--out', 'proof.json'],
+    { cwd: dir }
+  );
+
+  const okProof = runCli(['proof-verify', 'proof.json', '--registry', 'registry.json'], dir);
+  assert.equal(okProof.status, 0, okProof.stdout + okProof.stderr);
+  assert.match(okProof.stdout, /VERDICT: TRUSTED PROOF/);
+
+  execFileSync(
+    process.execPath,
+    [CLI, 'passport-create', '--proof', 'proof.json', '--subject', 'alice-demo', '--out', 'passport.json'],
+    { cwd: dir }
+  );
+
+  const okPassport = runCli(['passport-verify', 'passport.json', '--registry', 'registry.json'], dir);
+  assert.equal(okPassport.status, 0, okPassport.stdout + okPassport.stderr);
+  assert.match(okPassport.stdout, /VERDICT: PASSPORT VALID/);
+
+  const dispute = runCli(['dispute', 'passport.json', '--registry', 'registry.json'], dir);
+  assert.equal(dispute.status, 0, dispute.stdout + dispute.stderr);
+  assert.match(dispute.stdout, /DISPUTE VERDICT: VALID/);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});

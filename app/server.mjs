@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -52,6 +53,15 @@ const ISSUER_KEYS = Object.freeze({
 });
 
 const PROOF_NONCES = new InMemoryNonceStore();
+
+// Short public verification links (/p/<id> → /verify#p=<document>).
+// Ephemeral by design: the mapping lives only in this process's memory and
+// is capped, so nothing about users is persisted anywhere — privacy first.
+const SHARE_LIMIT = 5_000;
+const SHARE_MAP = new Map();
+const SHARE_ID_RE = /^[0-9a-f]{12}$/;
+const b64u = (buf) => Buffer.from(buf).toString('base64')
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 export function makeSampleProof(now = Date.now()) {
   const event = newEvent({
@@ -429,6 +439,55 @@ export function createAppServer() {
         const body = JSON.stringify(report);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/share' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 262_144) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"document too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        const doc = parsed.doc ?? null;
+        if (!doc || typeof doc !== 'object' ||
+            (doc.type !== 'PiProof' && doc.type !== 'AUREVIA-Evidence-Passport')) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"doc must be a PiProof or AUREVIA-Evidence-Passport"}');
+          return;
+        }
+        const id = randomBytes(6).toString('hex');
+        if (SHARE_MAP.size >= SHARE_LIMIT) {
+          SHARE_MAP.delete(SHARE_MAP.keys().next().value);
+        }
+        SHARE_MAP.set(id, doc);
+        const body = JSON.stringify({ id });
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname.startsWith('/p/')) {
+        const id = url.pathname.slice(3);
+        if (!SHARE_ID_RE.test(id) || !SHARE_MAP.has(id)) {
+          res.writeHead(404, { 'content-type': MIME['.json'] });
+          res.end('{"error":"share link not found — links are ephemeral"}');
+          return;
+        }
+        const target = '/verify#p=' + b64u(JSON.stringify(SHARE_MAP.get(id)));
+        res.writeHead(302, { location: target, 'cache-control': 'no-store' });
+        res.end();
         return;
       }
 

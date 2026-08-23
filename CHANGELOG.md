@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-24
+
+### Added — Killer-demo perfection: guided 60-second demo, issuer picker, short public links, installable CLI
+
+- **Guided 60-second demo** — one button plays the full flagship scenario
+  end-to-end with narrated steps: issue a `complete_transaction` proof
+  (weight 100, issuer *Demo Marketplace*) → ✓ PROOF CREATED → independent
+  verification ✓ VALID → tamper `weight: 100 → 100,000` ✗ INVALID → restore ✓
+  VALID again → download `proof-passport.json` with the exact one-line
+  verification command anyone can run.
+- **Issuer picker** — the passport issue form now exposes all three demo
+  issuers (`demo-app`, `marketplace-demo`, `demo-agent-service`), matching
+  the cross-application story; the server already accepted `issuer`.
+- **Short public verification links** — `POST /api/share` returns an
+  ephemeral 12-hex id; `GET /p/<id>` 302-redirects to
+  `/verify#p=<document>`. The share button prefers the short link and falls
+  back to the pure fragment link on static deployments. The mapping is
+  memory-only and capped (5,000 entries) by design: nothing about users is
+  ever persisted.
+- **Installable CLI** — package now exposes both `pep` and `piproof` bins;
+  every document-consuming command (`proof-verify`, `passport-verify`,
+  `dispute`) also accepts the file as a positional argument:
+  `npx piproof passport-verify proof-passport.json --registry registry.json`.
+
+### Tests
+
+- `app/app.test.js`: share roundtrip (id format, 302 location decodes to the
+  exact shared document, unknown id 404, malformed id 404, wrong type 400,
+  invalid json 400).
+- `test/cli.test.js`: end-to-end portable-proof flow — sign → `proof-export`
+  → positional `proof-verify` → `passport-create` → positional
+  `passport-verify` → `dispute` verdict VALID.
+
 ## [0.9.0] - 2026-08-24
 
 ### Added — AUREVIA Evidence Network: public verification, Dispute Mode, cross-application proofs, Agent Evidence
