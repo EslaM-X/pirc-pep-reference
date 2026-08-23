@@ -51,8 +51,9 @@
   .chip:hover{color:var(--ink);border-color:#5aa7ff66}
   .chip.on{color:#071018;background:linear-gradient(90deg,var(--gold),var(--a3));font-weight:700;border:none}
   .statusdot{width:8px;height:8px;border-radius:99px;background:var(--gold);box-shadow:0 0 10px currentColor;display:inline-block;margin-inline-end:6px}
-  .statusdot.live{background:var(--a3)}
-  .statusdot.err{background:var(--red)}
+.statusdot.live{background:var(--a3)}
+.statusdot.warn{background:var(--gold)}
+.statusdot.err{background:var(--red)}
 
   main{max-width:1120px;margin:0 auto;padding:22px clamp(14px,4vw,32px) 80px;
        display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
@@ -321,7 +322,8 @@ const I18N = {
     pp_note:"Verification runs server-side on the exact code path of src/verify.js. The nonce store lives for the whole server lifetime, so resubmitting the same proof is caught instantly.",
     pp_static:"Interactive verification needs the Node verifier (npm run app). Static deployments render the dashboard only.",
     pp_replay_toast:"Replay caught live — nonce already claimed",
-    pp_bad_json:"Invalid JSON"
+    pp_bad_json:"Invalid JSON",
+    static_loaded:"Static snapshot (generated at deploy) — interactive verification needs the server"
   },
   ar:{
     title:"AUREVIA",
@@ -354,7 +356,8 @@ const I18N = {
     pp_note:"التحقق يعمل على السيرفر بنفس كود src/verify.js حرفيًا. مخزن الـnonce يستمر طوال عمر السيرفر، لذا إعادة إرسال نفس الإثبات تُكتشف مباشرة.",
     pp_static:"التحقق التفاعلي يحتاج مدقق Node (npm run app). النشر الساكن يعرض اللوحة فقط.",
     pp_replay_toast:"تم ضبط إعادة الإصدار مباشرة — الـnonce مستخدم بالفعل",
-    pp_bad_json:"JSON غير صالح"
+    pp_bad_json:"JSON غير صالح",
+    static_loaded:"لقطة ساكنة (مولّدة عند النشر) — التحقق التفاعلي يتطلب السيرفر"
   }
 };
 let lang = localStorage.getItem('lang') || 'en';
@@ -574,13 +577,20 @@ $('pp-tamper-s').onclick=()=>ppMutate(p=>{
 /* ---------- boot ---------- */
 applyLang();
 ppLoadSample();
-fetch('api/snapshot').then(r=>r.json()).then(s=>{
+fetch('api/snapshot').then(r=>{if(!r.ok)throw new Error('api '+r.status);return r.json()}).then(s=>{
   lastSnap=s;render(s);
   net('live',t('live'));
   toast(t('snap_loaded'),'ok');
-}).catch(err=>{
-  net('err',t('offline'));
-  toast('Snapshot error: '+err.message,'bad');
+}).catch(()=>{
+  /* static deployment fallback: pre-generated snapshot.json */
+  fetch('snapshot.json').then(r=>{if(!r.ok)throw new Error('no static snapshot');return r.json()}).then(s=>{
+    lastSnap=s;render(s);
+    net('warn','STATIC');
+    toast(t('static_loaded'));
+  }).catch(e=>{
+    net('err',t('offline'));
+    toast('Snapshot error: '+e.message,'bad');
+  });
 });
 document.querySelectorAll('.card').forEach((c,i)=>{
   setTimeout(()=>c.classList.add('in'),120+i*110);
