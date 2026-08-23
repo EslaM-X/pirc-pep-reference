@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AUREVIA — Trust. Verified. Transparent.</title>
 <meta name="theme-color" content="#070b12">
+<script>document.documentElement.classList.add('js')</script>
 <meta name="description" content="Real-time mathematical floor, x·y=k invariant health, escrow lock attestations and verified engagement — powered by PEP/1 signed proofs.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
@@ -56,13 +57,17 @@
 .statusdot.err{background:var(--red)}
 
   main{max-width:1120px;margin:0 auto;padding:22px clamp(14px,4vw,32px) 80px;
-       display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+    display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+  .hero-line{text-align:center;margin:-2px auto 8px;padding:0 clamp(14px,4vw,32px)}
+  .hero-line b{display:inline-block;font-size:clamp(17px,2.6vw,22px);letter-spacing:.02em}
+  .hero-line span{display:inline-block;margin-top:5px;color:var(--dim);font-size:13.5px;max-width:720px}
   .card{grid-column:span 12;composes:none;position:relative;
     background:linear-gradient(165deg,var(--glass),var(--glass2));
     border:1px solid var(--line);border-radius:var(--r);padding:20px;backdrop-filter:blur(14px);
-    box-shadow:var(--shadow);opacity:0;transform:translateY(14px);
-    transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
-  .card.in{opacity:1;transform:none}
+    box-shadow:var(--shadow);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
+  /* reveal animation only when JS is confirmed running; content stays visible otherwise */
+  .js .card{opacity:0;transform:translateY(14px)}
+  .js .card.in{opacity:1;transform:none}
   @media(min-width:900px){.c6{grid-column:span 6}.c7{grid-column:span 7}.c5{grid-column:span 5}}
   .card h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--dim);
     display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
@@ -187,6 +192,11 @@
   </div>
 </header>
 
+<div class="hero-line">
+  <b data-i18n="hero_1">Don't trust the app. Verify the proof.</b><br>
+  <span data-i18n="hero_2">PiProof lets applications issue cryptographically verifiable proofs that independent parties can verify against their own trusted state.</span>
+</div>
+
 <main>
   <!-- identity / Pi account -->
   <section class="card c5" id="card-pi">
@@ -278,17 +288,20 @@
   <span data-i18n="footer_trust">Every number here comes from one verifiable snapshot assembled by</span>
   <code>src/dashboard.js</code>
   <span data-i18n="footer_trust2">from registry-verified Ed25519 signatures only. Reproduce:</span>
-  <code>git clone https://github.com/EslaM-X/pirc-pep-reference && cd pirc-pep-reference && npm run app</code><br>
+  <code>git clone https://github.com/EslaM-X/piproof && cd piproof && npm run app</code><br>
   <span data-i18n="footer_product">Cryptographic transparency infrastructure for decentralized ecosystems.</span><br>
   <span data-i18n="footer_scope">Descriptive mathematics over caller-supplied reserves — this page does not price, value, endorse or promote any asset.</span><br>
   Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company.
   <span data-i18n="footer_comm">Community-built; not affiliated with or maintained by the Pi Core Team.</span>
-  © 2026 EslaM-X · <a href="https://github.com/EslaM-X/pirc-pep-reference/blob/main/LICENSE">PiOS License</a>
+  © 2026 EslaM-X · <a href="https://github.com/EslaM-X/piproof/blob/main/LICENSE">PiOS License</a>
 </footer>
 
 <div id="toasts" aria-live="polite"></div>
 
 <script>
+/* ---------- utils (must be first — everything below depends on $) ---------- */
+const $=id=>document.getElementById(id);
+
 /* ---------- i18n ---------- */
 const I18N = {
   en:{
@@ -323,7 +336,9 @@ const I18N = {
     pp_static:"Interactive verification needs the Node verifier (npm run app). Static deployments render the dashboard only.",
     pp_replay_toast:"Replay caught live — nonce already claimed",
     pp_bad_json:"Invalid JSON",
-    static_loaded:"Static snapshot (generated at deploy) — interactive verification needs the server"
+    static_loaded:"Static snapshot (generated at deploy) — interactive verification needs the server",
+    hero_1:"Don't trust the app. Verify the proof.",
+    hero_2:"PiProof lets applications issue cryptographically verifiable proofs that independent parties can verify against their own trusted state."
   },
   ar:{
     title:"AUREVIA",
@@ -357,7 +372,9 @@ const I18N = {
     pp_static:"التحقق التفاعلي يحتاج مدقق Node (npm run app). النشر الساكن يعرض اللوحة فقط.",
     pp_replay_toast:"تم ضبط إعادة الإصدار مباشرة — الـnonce مستخدم بالفعل",
     pp_bad_json:"JSON غير صالح",
-    static_loaded:"لقطة ساكنة (مولّدة عند النشر) — التحقق التفاعلي يتطلب السيرفر"
+    static_loaded:"لقطة ساكنة (مولّدة عند النشر) — التحقق التفاعلي يتطلب السيرفر",
+    hero_1:"لا تثق بالتطبيق. تحقّق من الإثبات.",
+    hero_2:"PiProof يتيح للتطبيقات إصدار إثباتات تشفيرية قابلة للتحقق، يستطيع أي طرف مستقل التحقق منها مقابل حالته الموثوقة الخاصة."
   }
 };
 let lang = localStorage.getItem('lang') || 'en';
@@ -375,7 +392,6 @@ function applyLang(){
 $('lang').onclick=()=>{lang=lang==='ar'?'en':'ar';localStorage.setItem('lang',lang);applyLang();render(lastSnap);};
 
 /* ---------- utils ---------- */
-const $=id=>document.getElementById(id);
 const fmt=(n,d)=>Number(n).toLocaleString(lang==='ar'?'ar-EG':'en-US',{maximumFractionDigits:d??4});
 function toast(msg,kind=''){const d=document.createElement('div');d.className='toast '+kind;d.textContent=msg;
   $('toasts').appendChild(d);setTimeout(()=>d.remove(),4200);}
@@ -504,7 +520,7 @@ $('btn-pay').onclick=()=>{
     Pi.createPayment({
       amount:0.01,
       memo:'Pi Transparency Dashboard — support demo',
-      metadata:{app:'pirc-pep-reference',action:'support-demo'}
+      metadata:{app:'piproof',action:'support-demo'}
     },{
       onReadyForServerApproval:pid=>toast(`approval needed · payment ${pid.slice(0,8)}…`),
       onReadyForServerComplete:txid=>toast(`${t('pay_ok')} tx ${txid.slice(0,8)}…`,'ok'),
@@ -595,6 +611,8 @@ fetch('api/snapshot').then(r=>{if(!r.ok)throw new Error('api '+r.status);return 
 document.querySelectorAll('.card').forEach((c,i)=>{
   setTimeout(()=>c.classList.add('in'),120+i*110);
 });
+/* fail-safe: never leave content hidden, even if something above throws */
+setTimeout(()=>document.querySelectorAll('.card:not(.in)').forEach(c=>c.classList.add('in')),1600);
 </script>
 </body>
 </html>

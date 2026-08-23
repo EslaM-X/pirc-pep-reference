@@ -92,7 +92,7 @@ externally audited production cryptographic standard.
   It does **not** mean twenty vulnerabilities were found and fixed, and it
   does not bound the total attack space.
 - No external audit has taken place. A `v1.0` tag is explicitly blocked on
-  external review ([issue #2](https://github.com/EslaM-X/pirc-pep-reference/issues/2)).
+  external review ([issue #2](https://github.com/EslaM-X/piproof/issues/2)).
 - Canonicalization hardening note: object keys are sorted raw but serialized
   NFC-normalized; keys that collide after normalization are rejected rather
   than silently merged (`CanonicalError`). Within the current closed PEP/1

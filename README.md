@@ -1,18 +1,18 @@
 <div align="center">
 
-# 🛡️ pirc-pep-reference
+# 🛡️ PiProof
 
-### Programmable Engagement Proofs — PEP/1 Reference Implementation
+### Verifiable proofs for the Pi ecosystem — PEP/1 protocol · Trust Policy Engine · AUREVIA dashboard
 
 **Deterministic. Signed. Replay-proof. Zero dependencies.**
 
-[![CI](https://github.com/EslaM-X/pirc-pep-reference/actions/workflows/ci.yml/badge.svg)](https://github.com/EslaM-X/pirc-pep-reference/actions/workflows/ci.yml)
+[![CI](https://github.com/EslaM-X/piproof/actions/workflows/ci.yml/badge.svg)](https://github.com/EslaM-X/piproof/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-PiOS-teal.svg)](#-license--copyright)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen.svg)](https://nodejs.org)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-success.svg)](#-zero-dependencies)
 [![Tests](https://img.shields.io/badge/tests-38%2F38-brightgreen.svg)](#-run-it-yourself)
-[![Attacks](https://img.shields.io/badge/adversarial%20suite-20%2F20%20rejected-red.svg)](https://github.com/EslaM-X/pirc-pep-reference#-adversarial-suite)
+[![Attacks](https://img.shields.io/badge/adversarial%20suite-20%2F20%20rejected-red.svg)](https://github.com/EslaM-X/piproof#-adversarial-suite)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](#-contributing)
 [![Made in Egypt](https://img.shields.io/badge/made%20in-Egypt-%F0%9F%87%AA%F0%9F%87%AC-orange.svg)](https://github.com/EslaM-X)
 
@@ -90,8 +90,8 @@ It implements exactly what was discussed there, nothing more:
 ## 🚀 Run it yourself
 
 ```bash
-git clone https://github.com/EslaM-X/pirc-pep-reference.git
-cd pirc-pep-reference
+git clone https://github.com/EslaM-X/piproof.git
+cd piproof
 
 npm test          # unit + integration tests        → 38/38 ✔
 npm run attacks   # adversarial suite               → 20/20 rejected ✔
@@ -200,7 +200,7 @@ a pass records the nonce exactly once.
 ## 🗺️ Project map
 
 ```
-pirc-pep-reference/
+piproof/
 ├── src/
 │   ├── constants.js     protocol parameters & error codes
 │   ├── canonical.js     closed-profile JSON canonicalization (JCS subset)
