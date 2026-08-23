@@ -1,7 +1,7 @@
 {
   "name": "pirc-pep-reference",
   "version": "0.3.0",
-  "description": "Minimal deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, and a verifiable CLI.",
+  "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA — a Pi SDK-integrated cryptographic transparency dashboard.",
   "type": "module",
   "author": {
     "name": "EslaM-X",
@@ -31,6 +31,7 @@
     "ci": "npm test && npm run attacks && npm run transparency && npm run gen:vectors"
   },
   "keywords": [
+    "aurevia",
     "pirc",
     "pep",
     "ed25519",

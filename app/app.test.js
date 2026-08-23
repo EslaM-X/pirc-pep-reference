@@ -24,7 +24,7 @@ test('server serves index and snapshot endpoints', async () => {
   try {
     const html = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(html.status, 200);
-    assert.match(await html.text(), /Pi Transparency Dashboard/);
+    assert.match(await html.text(), /<title>AUREVIA/);
 
     const api = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
     assert.equal(api.status, 200);
@@ -36,7 +36,7 @@ test('server serves index and snapshot endpoints', async () => {
 
     const manifest = await fetch(`http://127.0.0.1:${port}/manifest.webmanifest`);
     assert.equal(manifest.status, 200);
-    assert.match(await manifest.text(), /Pi Transparency Dashboard/);
+    assert.match(await manifest.text(), /"name": "AUREVIA"/);
 
     const icon = await fetch(`http://127.0.0.1:${port}/assets/icon.svg`);
     assert.equal(icon.status, 200);

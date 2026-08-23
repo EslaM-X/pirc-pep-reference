@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pi Transparency — verified floor · invariant · escrow</title>
+<title>AUREVIA — Trust. Verified. Transparent.</title>
 <meta name="theme-color" content="#070b12">
 <meta name="description" content="Real-time mathematical floor, x·y=k invariant health, escrow lock attestations and verified engagement — powered by PEP/1 signed proofs.">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -143,9 +143,9 @@
 
 <header>
   <div class="nav">
-    <div class="logo"><svg viewBox="0 0 512 512" width="42" height="42"><circle cx="256" cy="256" r="236" fill="#0d1322" stroke="url(#g)" stroke-width="20"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a63ff"/><stop offset=".5" stop-color="#5aa7ff"/><stop offset="1" stop-color="#3ddc97"/></linearGradient></defs><text x="256" y="330" text-anchor="middle" font-family="Georgia,serif" font-size="230" font-weight="700" fill="#f5c451">π</text></svg></div>
+    <div class="logo"><img src="/assets/icon.svg" alt="AUREVIA"></div>
     <div class="brand">
-      <h1 data-i18n="title">Pi Transparency</h1>
+      <h1 data-i18n="title">AUREVIA</h1>
       <small data-i18n="subtitle">verified floor · invariant health · escrow lock · engagement</small>
     </div>
     <div class="spacer"></div>
@@ -222,6 +222,7 @@
   <code>src/dashboard.js</code>
   <span data-i18n="footer_trust2">from registry-verified Ed25519 signatures only. Reproduce:</span>
   <code>git clone https://github.com/EslaM-X/pirc-pep-reference && cd pirc-pep-reference && npm run app</code><br>
+  <span data-i18n="footer_product">Cryptographic transparency infrastructure for decentralized ecosystems.</span><br>
   <span data-i18n="footer_scope">Descriptive mathematics over caller-supplied reserves — this page does not price, value, endorse or promote any asset.</span><br>
   Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company.
   <span data-i18n="footer_comm">Community-built; not affiliated with or maintained by the Pi Core Team.</span>
@@ -234,15 +235,15 @@
 /* ---------- i18n ---------- */
 const I18N = {
   en:{
-    title:"Pi Transparency",
-    subtitle:"verified floor · invariant health · escrow lock · engagement",
+    title:"AUREVIA",
+    subtitle:"Trust. Verified. Transparent.",
     connecting:"connecting…", live:"LIVE", offline:"OFFLINE",
     pi_account:"Pi account", auth_btn:"Authenticate with Pi", pay_btn:"Support · 0.01 π",
     pi_preview:"Preview mode — open inside Pi Browser to sign in.",
     pi_note:"Authentication uses the official Pi SDK. Payments require the app to be registered on the Pi Developer Portal; until then this is an honest demo of the flow.",
     signed_in:"Signed in", auth_ok:"Authenticated as", auth_fail:"Authentication failed",
     pay_ok:"Payment submitted — thank you!", pay_fail:"Payment cancelled or failed",
-    sdk_missing:"Pi SDK unavailable outside Pi Browser",
+    sdk_missing:"Pi environment unavailable — running in preview mode",
     floor_h:"Dynamic price floor", floor_unit:"quote per token · marginal floor",
     inv_h:"x·y = k invariant health", intact:"INTACT", compromised:"COMPROMISED",
     escrow_h:"Escrow lock status", escrow_none:"No attestation in snapshot.",
@@ -251,19 +252,20 @@ const I18N = {
     footer_trust:"Every number here comes from one verifiable snapshot assembled by",
     footer_trust2:"from registry-verified Ed25519 signatures only. Reproduce:",
     footer_scope:"Descriptive mathematics over caller-supplied reserves — this page does not price, value, endorse or promote any asset.",
+    footer_product:"Cryptographic transparency infrastructure for decentralized ecosystems.",
     footer_comm:"Community-built; not affiliated with or maintained by the Pi Core Team.",
     snap_loaded:"Snapshot loaded & rendered"
   },
   ar:{
-    title:"شفافية باي",
-    subtitle:"أرضية موثقة · صحة الثابت · قفل الإسكرو · التفاعل",
+    title:"AUREVIA",
+    subtitle:"ثقة. تحقّق. شفافية.",
     connecting:"جارٍ الاتصال…", live:"مباشر", offline:"غير متصل",
     pi_account:"حساب باي", auth_btn:"تسجيل الدخول عبر باي", pay_btn:"دعم · 0.01 π",
     pi_preview:"وضع المعاينة — افتح التطبيق داخل متصفح باي لتسجيل الدخول.",
     pi_note:"المصادقة تستخدم SDK باي الرسمي. المدفوعات تتطلب تسجيل التطبيق في بوابة المطورين؛ حتى ذلك الحين هذا عرض صادق للآلية.",
     signed_in:"مسجّل الدخول", auth_ok:"تم المصادقة باسم", auth_fail:"فشلت المصادقة",
     pay_ok:"تم إرسال الدفعة — شكرًا لك!", pay_fail:"الدفعة أُلغيت أو فشلت",
-    sdk_missing:"SDK باي غير متاح خارج متصفح باي",
+    sdk_missing:"بيئة باي غير متاحة — يعمل الآن في وضع المعاينة",
     floor_h:"الأرضية السعرية الديناميكية", floor_unit:"وحدة مقابل للرمز · الأرضية الحدّية",
     inv_h:"صحة ثابت x·y = k", intact:"سليم", compromised:"مخترَق",
     escrow_h:"حالة قفل الإسكرو", escrow_none:"لا يوجد إثبات في اللقطة.",
@@ -272,6 +274,7 @@ const I18N = {
     footer_trust:"كل رقم هنا يأتي من لقطة واحدة قابلة للتحقق يجمّعها",
     footer_trust2:"من توقيعات Ed25519 الموثقة بالسجل فقط. أعد الإنتاج:",
     footer_scope:"رياضيات وصفية فوق أرقام مقدَّمة من المستدعي — هذه الصفحة لا تسعّر أو تقيّم أو تروّج لأي أصل.",
+    footer_product:"بنية تحتية للشفافية التشفيرية للأنظمة اللامركزية.",
     footer_comm:"مشروع مجتمعي؛ غير تابع لفريق باي الأساسي ولا يشرف عليه.",
     snap_loaded:"تم تحميل اللقطة وعرضها"
   }
