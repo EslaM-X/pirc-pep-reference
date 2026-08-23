@@ -263,14 +263,39 @@ const result = verifySignedEvent(signedEnvelope, {
 // => { ok, code, checks: [{ check, pass }, ...] }
 ```
 
+## 📊 Transparency Layer (`v0.3`)
+
+The ideas endorsed in the PiRC1 review — **dynamic `p_floor`**, **`x·y=k`
+invariant tracking**, **escrow lock status**, and the **"Transparency
+Dashboard"** concept — are implemented as pure, side-effect-free modules on
+top of the PEP/1 trust layer:
+
+| Module | Endorsed idea it implements |
+|---|---|
+| [`src/pfloor.js`](src/pfloor.js) | `p_floor = (R·Q)/(R+S)²` recomputed in real time from circulating supply; invariant health report that flags any liquidity extraction |
+| [`src/engagement.js`](src/engagement.js) | PoA/PoU composite × Consistency Factor; per-project weight manifests clamped to protocol ceilings (weigh down, never up) |
+| [`src/escrow.js`](src/escrow.js) | offline-verifiable `SIGNING_AUTHORITY_REVOKED` attestations under a dedicated signature domain, bound to the revoked key's fingerprint |
+| [`src/dashboard.js`](src/dashboard.js) | one deterministic JSON snapshot fusing all four primitives for any "Transparency Dashboard" client |
+
+```bash
+npm run transparency   # end-to-end demo snapshot
+```
+
+**Scope discipline:** these modules describe AMM mathematics over
+caller-supplied reserves and verify authenticity of claims. They do not price,
+value, endorse or promote any asset, and they never fetch chain state — the
+optional attestation `anchor` field is a reference verifiers may resolve
+themselves.
+
 ## 🧭 Roadmap
 
 | Phase | Version | Scope | Status |
 |---|---|---|---|
 | I | `v0.1.x` | reference implementation, vectors, adversarial suite, cross-language verification | ✅ shipped |
-| II | `v0.2` | conformance harness for third-party implementers, more vectors, fuzzed schema edges | 🔜 next |
-| III | `v0.3` | pluggable storage backends for nonce stores, observability hooks | 🚧 planned |
-| IV | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
+| II | `v0.2` | conformance harness for third-party implementers, more vectors, fuzzed schema edges | ✅ shipped |
+| III | `v0.3` | Transparency Layer: dynamic p_floor, invariant tracking, escrow attestations, dashboard engine, engagement scoring | ✅ shipped |
+| IV | `v0.4` | pluggable storage backends for nonce stores, observability hooks | 🔜 next |
+| V | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
 > feedback — not before.
