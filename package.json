@@ -1,6 +1,6 @@
 ﻿{
   "name": "piproof",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA â€” a Pi SDK-integrated cryptographic transparency dashboard.",
   "type": "module",
   "author": {
@@ -28,6 +28,7 @@
     "demo": "node src/cli.js demo",
     "transparency": "node scripts/transparency-demo.mjs",
     "app": "node app/server.mjs",
+    "bench": "node scripts/bench.mjs",
     "gen:snapshot": "node scripts/gen-snapshot.mjs",
     "gen:vectors": "node scripts/gen-vectors.mjs && node scripts/check-vectors.mjs",
     "ci": "npm test && npm run attacks && npm run transparency && npm run gen:vectors"

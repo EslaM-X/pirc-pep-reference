@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-24
+
+### Added — distributed nonce state, production-scale benchmark, the honest open-questions register
+
+Closes two of the ten hardest open questions and documents all ten:
+
+- **`RedisNonceStore` (`src/redis-nonces.js`)** — horizontally scalable
+  replay protection with **zero dependencies**: a minimal RESP2 client
+  written from scratch plus a worker-thread bridge that keeps the store's
+  interface synchronous (Atomics.wait, same fail-closed pattern as
+  FileNonceStore), so `verifySignedEvent`/`verifyPiProof` work unchanged
+  across N load-balanced verifier instances. Atomic claims via Redis
+  `SET NX`; optional TTL gives safe GC (claims only need to outlive the
+  TIMESTAMP_FRESHNESS window). Fail-closed: unreachable server ⇒ throw,
+  never allow. Only opaque nonce keys ever leave the process.
+- **Reproducible throughput benchmark (`npm run bench`)** — production-
+  scale evidence with numbers instead of adjectives: full 9-step pipeline
+  at ~7,300 verified proofs/sec single-core sequential (p50 0.125ms,
+  p99 0.43ms), ~5.5M InMemory claims/sec, durable FileNonceStore ~700/s.
+  No mocks: every counted verification passed every step.
+- **`docs/OPEN_QUESTIONS.md`** — the ten hardest questions raised about
+  this project (registry authenticity protocol gap, distributed state,
+  external audit, adoption, recency, breadth-vs-validation, forked vs
+  authored repos, production evidence, agent-evidence depth, complexity
+  growth) answered honestly: status, existing mitigations, and exactly
+  what closes each one. Linked prominently from README.
+
+### Tests
+
+- `test/redis-nonces.test.js` — canonical RESP2 encoding; parser against
+  byte-by-byte split chunks incl. CRLF inside bulk strings; dual-instance
+  atomic claim semantics over a real socket; TTL forwarding; fail-closed
+  construction. Uses a miniature RESP server running as a separate child
+  process (`test/fixtures/mini-redis.mjs`) so the synchronous bridge is
+  exercised exactly as in production — an in-process server would deadlock
+  by construction.
+
 ## [0.10.0] - 2026-08-24
 
 ### Added — Killer-demo perfection: guided 60-second demo, issuer picker, short public links, installable CLI
