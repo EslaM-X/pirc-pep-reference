@@ -25,6 +25,18 @@ export function canonicalize(value, depth = 0) {
   if (t === 'string') return JSON.stringify(value.normalize('NFC'));
   if (Array.isArray(value)) return '[' + value.map((v) => canonicalize(v, depth + 1)).join(',') + ']';
   if (t === 'object') {
+    // Hardening: two distinct raw keys can normalize (NFC) to the same string
+    // ("e\u0301" and "\u00e9" both become "é"). Sorting happens on raw keys,
+    // serialization on normalized ones, so such collisions would silently
+    // merge distinct fields into one canonical entry. Reject them instead.
+    const seen = new Set();
+    for (const raw of Object.keys(value)) {
+      const norm = raw.normalize('NFC');
+      if (seen.has(norm)) {
+        throw new CanonicalError(`normalized key collision under NFC: ${JSON.stringify(raw)}`);
+      }
+      seen.add(norm);
+    }
     const keys = Object.keys(value).sort();
     return '{' + keys.map((k) => JSON.stringify(k.normalize('NFC')) + ':' + canonicalize(value[k], depth + 1)).join(',') + '}';
   }

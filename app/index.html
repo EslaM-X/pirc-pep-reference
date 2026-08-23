@@ -6,9 +6,9 @@
 <title>AUREVIA — Trust. Verified. Transparent.</title>
 <meta name="theme-color" content="#070b12">
 <meta name="description" content="Real-time mathematical floor, x·y=k invariant health, escrow lock attestations and verified engagement — powered by PEP/1 signed proofs.">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/assets/icon.svg">
-<link rel="apple-touch-icon" href="/assets/icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<link rel="apple-touch-icon" href="assets/icon.svg">
 <style>
   :root{
     --bg:#070b12; --ink:#eef3fb; --dim:#93a0ba; --line:rgba(148,170,220,.14);
@@ -137,13 +137,43 @@
 
   :focus-visible{outline:2px solid var(--a2);outline-offset:2px;border-radius:8px}
 </style>
+<style>
+  /* PiProof explorer */
+  .pp-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+  @media(max-width:900px){.pp-grid{grid-template-columns:1fr}}
+  #pp-in{width:100%;min-height:230px;resize:vertical;background:var(--glass2);color:var(--ink);
+    border:1px solid var(--line);border-radius:14px;padding:14px;font-size:12.5px;line-height:1.5;
+    outline:none;transition:border-color .2s}
+  #pp-in:focus-visible{border-color:var(--gold)}
+  .pp-right{display:flex;flex-direction:column;gap:12px}
+  .pp-banner{font-weight:800;font-size:19px;letter-spacing:.06em;text-align:center;padding:13px 16px;
+    border-radius:14px;border:1px solid var(--line);transition:all .25s}
+  .pp-banner.idle{color:var(--dim);background:var(--glass)}
+  .pp-banner.ok{color:#08130c;background:linear-gradient(90deg,var(--a3),#7fe9bd);
+    box-shadow:0 0 34px -6px var(--a3);border-color:transparent}
+  .pp-banner.bad{color:#fff;background:linear-gradient(90deg,#c0344b,var(--red));
+    box-shadow:0 0 34px -6px var(--red);border-color:transparent}
+  .pp-steps{display:flex;flex-direction:column;gap:7px;min-height:60px}
+  .pp-step{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;
+    background:var(--glass);border:1px solid var(--line);font-size:13.5px;
+    opacity:0;transform:translateY(6px);animation:ppin .35s forwards}
+  @keyframes ppin{to{opacity:1;transform:none}}
+  .pp-step .ic{font-weight:900;width:20px;text-align:center}
+  .pp-step.p .ic{color:var(--a3)} .pp-step.f .ic{color:var(--red)}
+  .pp-step.f{border-color:rgba(255,109,126,.45)}
+  .pp-step small{margin-inline-start:auto;color:var(--dim);font-family:ui-monospace,monospace;
+    font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%}
+  .pp-why summary{cursor:pointer;color:var(--gold);font-weight:600;font-size:14px;padding:6px 0}
+  .pp-why[open] summary{margin-bottom:6px}
+  @media(prefers-reduced-motion:reduce){.pp-step{animation:none;opacity:1;transform:none}}
+</style>
 </head>
 <body>
 <div class="aurora" aria-hidden="true"></div>
 
 <header>
   <div class="nav">
-    <div class="logo"><img src="/assets/icon.svg" alt="AUREVIA"></div>
+    <div class="logo"><img src="assets/icon.svg" alt="AUREVIA"></div>
     <div class="brand">
       <h1 data-i18n="title">AUREVIA</h1>
       <small data-i18n="subtitle">verified floor · invariant health · escrow lock · engagement</small>
@@ -215,6 +245,32 @@
       </table>
     </div>
   </section>
+  <!-- PiProof explorer -->
+  <section class="card" id="pp-card">
+    <h2><span data-i18n="pp_h">PiProof Explorer</span>
+        <span class="badge neutral" data-i18n="pp_sub">Verify. Don't trust.</span></h2>
+    <div class="pp-grid">
+      <div class="pp-left">
+        <textarea id="pp-in" class="mono" spellcheck="false" aria-label="PiProof JSON"
+                  placeholder='{ "type": "PiProof", … }'></textarea>
+        <div class="pirow">
+          <button class="btn" id="pp-verify" data-i18n="pp_verify">Verify proof</button>
+          <button class="btn ghost" id="pp-tamper-w" data-i18n="pp_tamper_w">Tamper · weight ×1000</button>
+          <button class="btn ghost" id="pp-tamper-s" data-i18n="pp_tamper_s">Tamper · flip signature</button>
+          <button class="btn ghost" id="pp-reset" data-i18n="pp_reset">Reset</button>
+        </div>
+        <p class="unit dim" id="pp-static" hidden data-i18n="pp_static"></p>
+      </div>
+      <div class="pp-right">
+        <div id="pp-verdict" class="pp-banner idle" data-i18n="pp_idle">AWAITING PROOF</div>
+        <div id="pp-steps" class="pp-steps" aria-live="polite"></div>
+        <details class="pp-why">
+          <summary data-i18n="pp_why">Why is this proof trusted?</summary>
+          <p class="unit" data-i18n="pp_why_body"></p>
+        </details>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -254,7 +310,18 @@ const I18N = {
     footer_scope:"Descriptive mathematics over caller-supplied reserves — this page does not price, value, endorse or promote any asset.",
     footer_product:"Cryptographic transparency infrastructure for decentralized ecosystems.",
     footer_comm:"Community-built; not affiliated with or maintained by the Pi Core Team.",
-    snap_loaded:"Snapshot loaded & rendered"
+    snap_loaded:"Snapshot loaded & rendered",
+    pp_h:"PiProof Explorer", pp_sub:"Verify. Don't trust.",
+    pp_verify:"Verify proof", pp_tamper_w:"Tamper · weight ×1000",
+    pp_tamper_s:"Tamper · flip signature", pp_reset:"Reset",
+    pp_idle:"AWAITING PROOF", pp_trusted:"✓ TRUSTED PROOF",
+    pp_invalid:"✗ INVALID PROOF", pp_checking:"VERIFYING…",
+    pp_why:"Why is this proof trusted?",
+    pp_why_body:"A PiProof wraps exactly one Ed25519-signed event. This verifier re-checks every layer itself against its own registry copy: envelope integrity, registry epoch root, claim schema, issuer registration, key status (including revocation), deterministic canonical encoding, signature, freshness window, weight ceiling, eligibility and the single-use nonce. The issuing app is never trusted — only the mathematics is.",
+    pp_note:"Verification runs server-side on the exact code path of src/verify.js. The nonce store lives for the whole server lifetime, so resubmitting the same proof is caught instantly.",
+    pp_static:"Interactive verification needs the Node verifier (npm run app). Static deployments render the dashboard only.",
+    pp_replay_toast:"Replay caught live — nonce already claimed",
+    pp_bad_json:"Invalid JSON"
   },
   ar:{
     title:"AUREVIA",
@@ -276,7 +343,18 @@ const I18N = {
     footer_scope:"رياضيات وصفية فوق أرقام مقدَّمة من المستدعي — هذه الصفحة لا تسعّر أو تقيّم أو تروّج لأي أصل.",
     footer_product:"بنية تحتية للشفافية التشفيرية للأنظمة اللامركزية.",
     footer_comm:"مشروع مجتمعي؛ غير تابع لفريق باي الأساسي ولا يشرف عليه.",
-    snap_loaded:"تم تحميل اللقطة وعرضها"
+    snap_loaded:"تم تحميل اللقطة وعرضها",
+    pp_h:"مستكشف PiProof", pp_sub:"تحقّق. لا تثق.",
+    pp_verify:"تحقق من الإثبات", pp_tamper_w:"عبث · الوزن ×1000",
+    pp_tamper_s:"عبث · قلب التوقيع", pp_reset:"إعادة تعيين",
+    pp_idle:"بانتظار إثبات", pp_trusted:"✓ إثبات موثوق",
+    pp_invalid:"✗ إثبات غير صالح", pp_checking:"جارٍ التحقق…",
+    pp_why:"لماذا يُعتبر هذا الإثبات موثوقًا؟",
+    pp_why_body:"الإثبات يغلّف حدثًا واحدًا موقّعًا بـEd25519. يعيد هذا المدقق فحص كل طبقة بنفسه مقابل نسخته الخاصة من السجل: سلامة الغلاف، جذر حقبة السجل، مخطط الادعاء، تسجيل المُصدر، حالة المفتاح (بما فيها الإلغاء)، الترميز الكنوني الحتمي، التوقيع، نافذة الصلاحية، سقف الوزن، الأهلية، والـnonce أحادي الاستخدام. لا يُوثق بالتطبيق المُصدر إطلاقًا — بل بالرياضيات فقط.",
+    pp_note:"التحقق يعمل على السيرفر بنفس كود src/verify.js حرفيًا. مخزن الـnonce يستمر طوال عمر السيرفر، لذا إعادة إرسال نفس الإثبات تُكتشف مباشرة.",
+    pp_static:"التحقق التفاعلي يحتاج مدقق Node (npm run app). النشر الساكن يعرض اللوحة فقط.",
+    pp_replay_toast:"تم ضبط إعادة الإصدار مباشرة — الـnonce مستخدم بالفعل",
+    pp_bad_json:"JSON غير صالح"
   }
 };
 let lang = localStorage.getItem('lang') || 'en';
@@ -433,9 +511,70 @@ $('btn-pay').onclick=()=>{
   }catch(err){toast(t('pay_fail')+(err&&err.message?': '+err.message:''),'bad');}
 };
 
+/* ---------- PiProof explorer ---------- */
+const PP={sample:null,busy:false};
+function ppBanner(state,txt){const b=$('pp-verdict');b.className='pp-banner '+state;b.textContent=txt;}
+function ppSetDisabled(dis){['pp-verify','pp-tamper-w','pp-tamper-s','pp-reset'].forEach(id=>$(id).disabled=dis);}
+async function ppLoadSample(){
+  try{
+    const r=await fetch('api/sample-proof');
+    if(!r.ok)throw new Error(r.status);
+    const j=await r.json();
+    PP.sample=j.proof;
+    $('pp-in').value=JSON.stringify(j.proof,null,2);
+  }catch(e){
+    PP.sample=null;ppSetDisabled(true);
+    $('pp-static').hidden=false;
+    $('pp-in').placeholder=t('pp_static');
+  }
+}
+function renderProof(r){
+  ppBanner(r.ok?'ok':'bad',r.ok?t('pp_trusted'):t('pp_invalid'));
+  $('pp-steps').innerHTML=r.steps.map((s,i)=>
+    `<div class="pp-step ${s.pass?'p':'f'}" style="animation-delay:${i*55}ms">
+       <span class="ic">${s.pass?'✓':'✗'}</span><span>${s.label}</span>
+       ${s.detail?`<small title="${String(s.detail).replace(/"/g,'&quot;')}">${s.detail}</small>`:''}
+     </div>`).join('');
+}
+async function ppVerify(){
+  if(PP.busy)return;
+  let proof;
+  try{proof=JSON.parse($('pp-in').value);}
+  catch(e){return toast(t('pp_bad_json'),'bad');}
+  PP.busy=true;ppBanner('idle',t('pp_checking'));
+  try{
+    const r=await fetch('api/verify-proof',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({proof})});
+    const j=await r.json();
+    renderProof(j);
+    if(j.code==='REPLAY_DETECTED')toast(t('pp_replay_toast'),'bad');
+  }catch(e){toast('verifier unreachable: '+e.message,'bad');ppBanner('bad',t('pp_invalid'));}
+  PP.busy=false;
+}
+function ppMutate(fn,label){
+  let proof;
+  try{proof=JSON.parse($('pp-in').value);}
+  catch(e){return toast(t('pp_bad_json'),'bad');}
+  try{fn(proof);}catch(e){return toast(e.message,'bad');}
+  $('pp-in').value=JSON.stringify(proof,null,2);
+  toast(label);setTimeout(ppVerify,250);
+}
+$('pp-verify').onclick=ppVerify;
+$('pp-reset').onclick=()=>{if(PP.sample){$('pp-in').value=JSON.stringify(PP.sample,null,2);}renderProof({ok:true,steps:[],code:null});ppBanner('idle',t('pp_idle'));};
+$('pp-tamper-w').onclick=()=>ppMutate(p=>{
+  if(typeof p.event?.weight!=='number')throw new Error('no event.weight to tamper');
+  p.event.weight=p.event.weight*1000;
+},lang==='ar'?'تم رفع الوزن ×1000 — التوقيع لم يُحدَّث':'weight raised ×1000 — signature untouched');
+$('pp-tamper-s').onclick=()=>ppMutate(p=>{
+  const s=p.event?.signature;if(typeof s!=='string'||s.length<2)throw new Error('no signature to flip');
+  p.event.signature=(s===s.toUpperCase()&&/[A-Z]/.test(s))?s.slice(0,-1)+String.fromCharCode(s.charCodeAt(s.length-2)):s.split('').reverse().join('');
+},lang==='ar'?'تم قلب أحرف التوقيع':'signature bytes flipped');
+
 /* ---------- boot ---------- */
 applyLang();
-fetch('/api/snapshot').then(r=>r.json()).then(s=>{
+ppLoadSample();
+fetch('api/snapshot').then(r=>r.json()).then(s=>{
   lastSnap=s;render(s);
   net('live',t('live'));
   toast(t('snap_loaded'),'ok');

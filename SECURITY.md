@@ -102,3 +102,15 @@ node src/cli.js attacks
 ```
 
 CI runs both on Node 18/20/22 across Linux and Windows.
+
+## Audit status (added v0.7.0)
+
+This is a security-conscious reference implementation — it has **not**
+received an external audit and must not be presented as one. "20/20 attacks
+rejected" means twenty named adversarial scenarios pass in CI; it does not
+mean twenty vulnerabilities were found, nor that the attack space is bounded.
+A v1.0 tag remains blocked on external review (see issue #2).
+
+Full boundary analysis — registry authenticity, distributed nonce
+requirements, timestamp-vs-replay semantics, supply-chain posture — now
+lives in [docs/TRUST_BOUNDARIES.md](docs/TRUST_BOUNDARIES.md).

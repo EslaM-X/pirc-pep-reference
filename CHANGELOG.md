@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-24
+
+### Added — PiProof: portable proofs + Trust Policy Engine + Proof Explorer
+
+The three signature capabilities, deliberately nothing more:
+
+- **Portable Verifiable Proofs (`PiProof/1`)** — `src/piproof.js`. A proof
+  wraps exactly one signed PEP/1 event so any party can verify it against
+  their own registry copy without trusting the issuer. Optional
+  `registry_root` content-addresses the verifier's epoch; foreign-epoch
+  proofs are rejected (`REGISTRY_ROOT`). Human-readable step checklist on
+  every verification.
+- **Trust Policy Engine** — `src/policy.js`. Deterministic, pure narrowing
+  of acceptance after cryptographic validity: `issuer_allowlist`,
+  `action_classes`, `min/max_weight`, `max_age_ms`, `require_kyc`,
+  `require_mainnet`. Violations come back rule-by-rule.
+- **CLI**: `pep proof-export` / `pep proof-verify [--policy policy.json]`
+  print the full checklist and a `TRUSTED PROOF` / `INVALID PROOF` verdict.
+- **AUREVIA Proof Explorer** — paste a proof, verify it live through the
+  exact `src/verify.js` code path server-side; one-click **Tamper Lab**
+  (weight ×1000 → `INVALID_SIGNATURE`; signature flip) plus live replay
+  catching (persistent nonce store). "Why is this proof trusted?" explains
+  every layer in EN/AR.
+- **Public deployment path**: `npm run gen:snapshot`, GitHub Pages workflow
+  (static dashboard), Dockerfile for any Node host (Fly/Railway/VPS).
+- New endpoints `/api/sample-proof`, `/api/verify-proof`, `/snapshot.json`;
+  app paths made relative (works under any base URL).
+
+### Hardened — responding to external critique
+
+- **Canonicalizer NFC key-collision rejection**: distinct raw keys that
+  normalize to the same string now throw instead of silently merging.
+  Unreachable under the closed PEP/1 schema (ASCII keys); fixed at the
+  primitive level anyway. Committed vectors unchanged byte-for-byte.
+- **CI supply chain**: all GitHub Actions pinned to full commit SHAs.
+- **`docs/TRUST_BOUNDARIES.md`**: registry authenticity analysis with
+  signed-epoch-root + transparency-log roadmap; nonce-store durability/
+  distribution contract table; timestamp-vs-replay clarification;
+  explicit non-audited status (also added to SECURITY.md).
+
+### Tests
+
+69/69 across Node 18/20/22 × Linux/Windows (was 61): 7 PiProof/policy/
+canonicalization tests + endpoint tests for sample-proof, replay,
+tampering, policy and malformed input.
+
+### Explicitly deferred (scope discipline)
+
+Privacy-preserving proofs (ZK), verifiable AI-agent claims, additional
+language SDKs, browser extension, reputation scores, adoption counters —
+each only after real use cases materialize. No feature creep before
+product-market fit.
+
 ## [0.6.1] - 2026-08-24
 
 ### Changed — product rebrand: AUREVIA + positioning discipline

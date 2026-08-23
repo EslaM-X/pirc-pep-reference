@@ -288,6 +288,51 @@ npm run app            # live single-page Transparency Dashboard (localhost:8787
 - **Bilingual EN/العربية** with full RTL layout switch, persisted per user.
 - Glassmorphism UI over an animated aurora · skeleton loaders · count-up numbers · reveal animations · toast notifications · medal ranks · HiDPI gradient-area canvas chart · `prefers-reduced-motion` respected · PWA manifest for standalone install.
 
+## 🔐 PiProof — portable verifiable proofs (v0.7.0)
+
+A PiProof wraps exactly one signed PEP/1 event so **any party can verify it
+against their own registry copy without trusting the issuing app**.
+
+```bash
+# export a proof from a signed event
+pep proof-export --event signed.json --registry registry.json --out proof.json
+
+# verify anywhere — full checklist, deterministic verdict
+pep proof-verify --proof proof.json --registry registry.json \
+  --policy policy.json
+```
+
+```
+ ✓ proof envelope well-formed
+ ✓ registry root matches verifier epoch
+ ✓ claim schema valid
+ ✓ issuer registered
+ ✓ signing key active (not revoked)
+ ✓ deterministic canonical encoding
+ ✓ Ed25519 signature valid
+ ✓ timestamp fresh (within window)
+ ✓ weight within class ceiling
+ ✓ eligibility confirmed against registry
+ ✓ nonce unused — no replay
+
+VERDICT: TRUSTED PROOF — don't trust the app, verify the proof.
+```
+
+Optional **Trust Policies** (`src/policy.js`) narrow acceptance after
+cryptographic validity: `issuer_allowlist`, `action_classes`,
+`min_weight` / `max_weight`, `max_age_ms`, `require_kyc`,
+`require_mainnet` — with rule-by-rule violations.
+
+In AUREVIA: the **PiProof Explorer** verifies proofs live through the same
+server code path, with a one-click Tamper Lab (mutate weight → invalid;
+flip signature → invalid) and live replay catching. "Don't trust the app —
+verify the proof."
+
+**Trust boundaries are documented, not hidden:** registry authenticity,
+nonce-store durability/distribution requirements, and audit status live in
+[docs/TRUST_BOUNDARIES.md](docs/TRUST_BOUNDARIES.md). This project is not
+externally audited; v1.0 remains blocked on external review.
+
 ## 🛡️ AUREVIA — product identity
 
 > ### AUREVIA

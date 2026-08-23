@@ -10,6 +10,7 @@ import { markEligible, registerApp, registerKey } from '../src/registry.js';
 import { generateKeyPair, randomNonce } from '../src/keys.js';
 import { createRevocationAttestation } from '../src/escrow.js';
 import { assembleSnapshot } from '../src/dashboard.js';
+import { toPiProof, verifyPiProof } from '../src/piproof.js';
 
 /**
  * Pi Transparency App — local preview server.
@@ -25,6 +26,30 @@ import { assembleSnapshot } from '../src/dashboard.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DAY = 86_400_000;
+
+// Long-lived verifier state for the PiProof Explorer: the registry epoch and
+// the nonce store persist for the whole server lifetime, so a replayed proof
+// is rejected on its second submission, exactly like a real deployment.
+const PROOF_WORLD = makeWorld();
+markEligible(PROOF_WORLD.registry, hashUid('pioneer-alice', SUITE_UID_SECRET));
+markEligible(PROOF_WORLD.registry, hashUid('pioneer-bob', SUITE_UID_SECRET));
+const PROOF_NONCES = new InMemoryNonceStore();
+
+export function makeSampleProof(now = Date.now()) {
+  const event = newEvent({
+    app_id: 'demo-app',
+    key_id: 'k-2026-active',
+    action_class: 'A',
+    action_id: 'complete_transaction',
+    weight: 50,
+    pioneer_uid: 'x',
+    uidSecret: SUITE_UID_SECRET,
+    now
+  });
+  event.pioneer_uid_hash = hashUid('pioneer-alice', SUITE_UID_SECRET);
+  const signed = signEvent(event, PROOF_WORLD.currentKey.private_key_pem);
+  return toPiProof(signed, { registry: PROOF_WORLD.registry });
+}
 
 function buildWorld(now) {
   const world = makeWorld();
@@ -134,6 +159,56 @@ export function createAppServer() {
         const body = JSON.stringify(buildSnapshot());
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/sample-proof') {
+        const proof = makeSampleProof();
+        const body = JSON.stringify({ proof });
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/verify-proof' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 262_144) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"proof too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        const result = verifyPiProof(parsed.proof ?? null, {
+          registry: PROOF_WORLD.registry,
+          nonceStore: PROOF_NONCES,
+          now: Date.now(),
+          policy: parsed.policy ?? null
+        });
+        const body = JSON.stringify(result);
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/snapshot.json') {
+        try {
+          const snap = await readFile(path.join(ROOT, 'snapshot.json'));
+          res.writeHead(200, { 'content-type': MIME['.json'] });
+          res.end(snap);
+        } catch {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end('{"error":"static snapshot not generated — run npm run gen:snapshot"}');
+        }
         return;
       }
 

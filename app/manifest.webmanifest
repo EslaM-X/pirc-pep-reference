@@ -2,8 +2,9 @@
   "name": "AUREVIA",
   "short_name": "AUREVIA",
   "description": "Cryptographic transparency infrastructure for decentralized ecosystems. Trust. Verified. Transparent.",
-  "id": "/",
-  "start_url": "/",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b0f17",
@@ -13,7 +14,7 @@
   "dir": "ltr",
   "categories": ["finance", "utilities", "developer tools"],
   "icons": [
-    { "src": "/assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
   ]
 }
