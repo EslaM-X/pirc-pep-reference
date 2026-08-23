@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const NONCE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}:[0-9a-f]{32}$/;
+export const NONCE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}:[0-9a-f]{32}$/;
 
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);

@@ -218,6 +218,7 @@ piproof/
 │   ├── keys.js          key generation (RFC 8032 via node:crypto)
 │   ├── registry.js      app/key registry + eligibility registry
 │   ├── nonces.js        InMemory + file-backed nonce stores (atomic claimIfAbsent)
+│   ├── redis-nonces.js  ★ distributed nonce store — zero-dep RESP2 client (v0.11)
 │   ├── verify.js        ★ the deterministic 9-step pipeline
 │   ├── escrow.js        SIGNING_AUTHORITY_REVOKED attestations (v0.3)
 │   ├── pfloor.js        dynamic price floor + invariant health (v0.3)
@@ -238,6 +239,7 @@ piproof/
 ├── scripts/
 │   ├── gen-vectors.mjs  regenerate all vectors byte-for-byte deterministically
 │   ├── check-vectors.mjs re-check committed vectors
+│   ├── bench.mjs        ★ reproducible throughput benchmark (v0.11)
 │   └── cross-verify.py  🐍 independent pure-Python RFC 8032 verifier
 ├── test/
 │   ├── canonical.test.js      canonicalization properties
@@ -250,11 +252,14 @@ piproof/
 │   ├── piproof.test.js        portable proofs + policy engine
 │   ├── passport.test.js       Evidence Passport unit suite
 │   ├── passport-api.test.js   HTTP APIs incl. cross-issuer & agent evidence
-│   └── dispute.test.js        dispute chain three-state honesty
+│   ├── dispute.test.js        dispute chain three-state honesty
+│   └── redis-nonces.test.js   distributed store vs RESP fixture (child proc)
 ├── vectors/
 │   ├── valid/signed-event.json        the one true positive vector
 │   ├── registry.json                  vector world state
 │   └── attacks/*.json                 20 attack vectors + expected codes
+├── docs/
+│   └── OPEN_QUESTIONS.md  ★ the honest register — ten hard questions, answered
 ├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
 ├── SPEC.md             normative specification
 ├── SECURITY.md         threat model & explicit limitations
@@ -288,6 +293,15 @@ node src/cli.js dispute --doc passport.json --registry registry.json --out dispu
 # or, once installed (`npm i -g .`), documents can be passed positionally:
 npx piproof passport-verify proof-passport.json --registry registry.json
 npx piproof dispute dispute-report.json --registry registry.json
+
+# horizontal scaling (v0.11): share replay state across N verifier instances
+import { RedisNonceStore } from './src/redis-nonces.js';
+const nonces = new RedisNonceStore({ url: process.env.REDIS_URL, ttlMs: 86_400_000 });
+// same synchronous interface — verifySignedEvent/verifyPiProof just work
+```
+
+```bash
+npm run bench   # reproducible throughput: ~7.3k proofs/sec single-core sequential, p50 0.125ms
 ```
 
 Library API:
@@ -497,8 +511,9 @@ themselves.
 | VI | `v0.8` | **AUREVIA Proof Passport**: Issue/Export/Import/Verify/Share/Tamper/Report, evidence roots | ✅ shipped |
 | VII | `v0.9` | **Evidence Network**: public verification page, Dispute Engine (VALID/INVALID/UNVERIFIABLE), cross-application proofs, Agent Evidence | ✅ shipped |
 | VIII | `v0.10` | **Killer-demo perfection**: guided 60-second demo, issuer picker, short public links (`/p/<id>`), installable `piproof` CLI with positional args | ✅ shipped |
-| IX | `v0.11` | pluggable storage backends for nonce stores (Redis et al.), observability hooks — the horizontal-scaling enabler | 🔜 next |
-| X | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
+| IX | `v0.11` | **Distributed nonce state** (`RedisNonceStore` — zero-dep RESP client, atomic `SET NX`, TTL GC), reproducible throughput benchmark (`npm run bench`), honest open-questions register | ✅ shipped |
+| X | `v0.12` | observability hooks, signed registry transparency-log design draft (the v1.0 review centerpiece) | 🔜 next |
+| XI | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
 > feedback — not before.
@@ -508,7 +523,9 @@ themselves.
 Threat model, adversary capabilities, and explicit limitations are documented
 in [SECURITY.md](SECURITY.md). The normative wire format lives in
 [SPEC.md](SPEC.md). Requirement-to-evidence traceability:
-[TRACEABILITY.md](TRACEABILITY.md).
+[TRACEABILITY.md](TRACEABILITY.md). The ten hardest open questions about
+this project — answered honestly, with status and what closes each one:
+[OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md).
 
 **Trust boundary, in one line:** a valid signature proves authenticity of a
 claim — never its truthfulness. Truth comes from the launchpad-controlled
