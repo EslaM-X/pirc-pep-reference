@@ -52,3 +52,56 @@ test('server serves index and snapshot endpoints', async () => {
     server.close();
   }
 });
+
+test('PiProof explorer endpoints verify, replay-catch and enforce policy', async () => {
+  const server = createAppServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const base = `http://127.0.0.1:${port}`;
+
+  try {
+    const sample = await (await fetch(`${base}/api/sample-proof`)).json();
+    assert.equal(sample.proof.type, 'PiProof');
+    assert.match(sample.proof.registry_root, /^r1:[0-9a-f]{64}$/);
+
+    const post = async (body) =>
+      (
+        await fetch(`${base}/api/verify-proof`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+      ).json();
+
+    const good = await post({ proof: sample.proof });
+    assert.equal(good.ok, true);
+    const stepIds = good.steps.map((s) => s.id);
+    assert.ok(stepIds.includes('SIGNATURE') && stepIds.includes('NONCE_REPLAY'));
+
+    const replay = await post({ proof: sample.proof });
+    assert.equal(replay.ok, false);
+    assert.equal(replay.code, 'REPLAY_DETECTED');
+
+    const tampered = structuredClone(sample.proof);
+    tampered.event.weight = tampered.event.weight * 1000;
+    const bad = await post({ proof: tampered });
+    assert.equal(bad.ok, false);
+    assert.equal(bad.code, 'INVALID_SIGNATURE');
+    const sigStep = bad.steps.find((s) => s.id === 'SIGNATURE');
+    assert.equal(sigStep.pass, false);
+
+    const fresh = await (await fetch(`${base}/api/sample-proof`)).json();
+    const policy = await post({ proof: fresh.proof, policy: { min_weight: 999 } });
+    assert.equal(policy.ok, false);
+    assert.equal(policy.code, 'POLICY');
+    assert.equal(policy.policy.violations[0].rule, 'min_weight');
+
+    const malformed = await fetch(`${base}/api/verify-proof`, { method: 'POST', body: '{oops' });
+    assert.equal(malformed.status, 400);
+
+    const html = await (await fetch(base + '/')).text();
+    assert.match(html, /PiProof Explorer/);
+  } finally {
+    server.close();
+  }
+});

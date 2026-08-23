@@ -5,6 +5,7 @@ import { formatAttackReport, runAttackSuite, makeWorld } from './attacks.js';
 import { hashUid, newEvent, signEvent } from './events.js';
 import { generateKeyPair } from './keys.js';
 import { InMemoryNonceStore, FileNonceStore } from './nonces.js';
+import { verifyPiProof, toPiProof } from './piproof.js';
 import { createRegistry, registerApp, registerKey, revokeKey, markEligible } from './registry.js';
 import { verifySignedEvent } from './verify.js';
 
@@ -61,6 +62,25 @@ function printVerifyResult(result) {
   }
 }
 
+function printProofResult(result) {
+  for (const s of result.steps) {
+    const mark = s.pass ? `${GREEN} ✓ ${RESET}` : `${RED} ✗ ${RESET}`;
+    console.log(` ${mark} ${s.label}${s.detail ? `  ${DIM}(${s.detail})${RESET}` : ''}`);
+  }
+  if (result.policy && result.policy.violations.length > 0) {
+    console.log(`${RED}Policy violations:${RESET}`);
+    for (const v of result.policy.violations) {
+      console.log(`   ${RED}·${RESET} ${v.rule}: ${v.detail}`);
+    }
+  }
+  console.log('');
+  if (result.ok) {
+    console.log(`${BOLD}${GREEN}VERDICT: TRUSTED PROOF — don't trust the app, verify the proof.${RESET}`);
+  } else {
+    console.log(`${BOLD}${RED}VERDICT: INVALID PROOF [${result.code}]${RESET}`);
+  }
+}
+
 const HELP = `pep - Programmable Engagement Proofs reference implementation
 
 Usage:
@@ -74,8 +94,15 @@ Commands:
   eligible     --registry registry.json --uid-hash <h1:hmac-tag>
   sign         --event event.json --key keys/demo.json [--out signed.json]
   verify       --event signed.json --registry registry.json [--nonces nonces.jsonl] [--now <unix-ms>]
+  proof-export --event signed.json [--registry registry.json] [--out proof.json]
+  proof-verify --proof proof.json --registry registry.json [--policy policy.json]
+               [--nonces nonces.jsonl] [--now <unix-ms>]
   attacks      run the full adversarial suite
   demo         end-to-end walkthrough
+
+PiProof: a portable envelope around one signed PEP/1 event. Any party holding
+the proof + the verifier's own registry copy can independently confirm every
+claim without trusting the issuing application.
 `;
 
 function cmdKeygen(flags) {
@@ -174,6 +201,28 @@ function cmdDemo() {
   console.log(`  ${BOLD}${RED}VERDICT: REJECT [${r3.code}]${RESET}`);
 }
 
+function cmdProofExport(flags) {
+  const event = readJson(flags.event);
+  const registry = flags.registry ? readJson(flags.registry) : null;
+  const proof = toPiProof(event, { registry });
+  if (flags.out) writeJson(flags.out, proof);
+  else console.log(JSON.stringify(proof, null, 2));
+  if (flags.out) console.log(`PiProof written to ${flags.out}`);
+}
+
+function cmdProofVerify(flags) {
+  const proof = readJson(flags.proof);
+  const registry = readJson(flags.registry);
+  const policy = flags.policy ? readJson(flags.policy) : null;
+  const nonceStore = flags.nonces
+    ? new FileNonceStore(flags.nonces)
+    : new InMemoryNonceStore();
+  const now = flags.now ? Number(flags.now) : Date.now();
+  const result = verifyPiProof(proof, { registry, nonceStore, now, policy });
+  printProofResult(result);
+  process.exitCode = result.ok ? 0 : 1;
+}
+
 function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const command = positional[0];
@@ -186,6 +235,8 @@ function main() {
     case 'eligible': return cmdEligible(flags);
     case 'sign': return cmdSign(flags);
     case 'verify': return cmdVerify(flags);
+    case 'proof-export': return cmdProofExport(flags);
+    case 'proof-verify': return cmdProofVerify(flags);
     case 'attacks': {
       const results = runAttackSuite();
       console.log(formatAttackReport(results));
