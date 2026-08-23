@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pi Transparency Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0e1420; --line:#1e2941;
+    --txt:#e8edf7; --dim:#8b98b3; --gold:#f5c451; --green:#3ddc97;
+    --red:#ff6b6b; --blue:#5aa7ff; --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 600px at 70% -10%,#16203a 0%,var(--bg) 55%);
+       color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       min-height:100vh;padding:18px clamp(12px,4vw,40px) 90px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 0 22px}
+  .logo{width:44px;height:44px;border-radius:50%;
+        background:conic-gradient(from 210deg,#8a63ff,#5aa7ff,#3ddc97,#f5c451,#8a63ff);
+        display:grid;place-items:center;font-weight:800;color:#0b0f17;font-size:20px}
+  h1{font-size:clamp(19px,4.5vw,26px);letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:13px}
+  main{max-width:1080px;margin:0 auto;display:grid;gap:16px;
+       grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+        border:1px solid var(--line);border-radius:var(--radius);
+        padding:18px 18px 16px;position:relative;overflow:hidden}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--dim);
+           margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+  .big{font-size:clamp(28px,6vw,38px);font-weight:750;letter-spacing:-.5px}
+  .unit{font-size:14px;color:var(--dim);font-weight:500}
+  .row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .pill{font-size:12px;padding:5px 11px;border-radius:99px;border:1px solid var(--line);
+        background:#0d1322;color:var(--dim)}
+  .pill b{color:var(--txt)}
+  .badge{font-size:11px;padding:4px 10px;border-radius:99px;font-weight:700;letter-spacing:.06em}
+  .ok{background:rgba(61,220,151,.12);color:var(--green);border:1px solid rgba(61,220,151,.35)}
+  .bad{background:rgba(255,107,107,.12);color:var(--red);border:1px solid rgba(255,107,107,.35)}
+  .bar{height:9px;border-radius:99px;background:#0d1322;border:1px solid var(--line);
+       margin-top:14px;overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:99px;
+         background:linear-gradient(90deg,var(--gold),var(--green));width:0%;transition:width 1s ease}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;
+     text-transform:uppercase;letter-spacing:.1em;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:9px 8px;border-bottom:1px solid rgba(30,41,65,.55)}
+  tr:last-child td{border-bottom:none}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+  .score-cell{min-width:120px}
+  .score-bar{height:7px;background:#0d1322;border-radius:99px;border:1px solid var(--line)}
+  .score-bar>i{display:block;height:100%;border-radius:99px;
+               background:linear-gradient(90deg,#8a63ff,var(--blue))}
+  canvas{width:100%;height:150px;display:block;margin-top:6px}
+  .checks{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+  .check{font-family:ui-monospace,monospace;font-size:11px;color:var(--green);
+         border:1px dashed rgba(61,220,151,.4);padding:3px 8px;border-radius:8px}
+  footer{max-width:1080px;margin:26px auto 0;color:var(--dim);font-size:12px;line-height:1.7}
+  footer code{color:var(--blue)}
+  a{color:var(--blue);text-decoration:none}
+  #err{max-width:1080px;margin:10px auto;display:none;background:rgba(255,107,107,.08);
+       border:1px solid rgba(255,107,107,.35);color:var(--red);padding:10px 14px;border-radius:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">π</div>
+  <div>
+    <h1>Pi Transparency Dashboard</h1>
+    <div class="sub">real-time mathematical floor · invariant health · escrow lock · verified engagement</div>
+  </div>
+  <span class="badge ok" id="live" style="margin-left:auto">LOADING…</span>
+</header>
+
+<div id="err"></div>
+
+<main>
+  <section class="card">
+    <h2>Dynamic Price Floor <span class="badge" id="formula-badge">p_floor = R·Q / (R+S)²</span></h2>
+    <div><span class="big" id="pfloor">–</span> <span class="unit">quote/token (marginal floor)</span></div>
+    <div class="row">
+      <span class="pill">spot <b id="spot">–</b></span>
+      <span class="pill">avg realized <b id="avg">–</b></span>
+      <span class="pill">supply <b id="supply">–</b></span>
+    </div>
+    <div class="bar"><i id="floor-ratio"></i></div>
+    <div class="sub" style="margin-top:6px">floor is <b id="ratio-txt">–</b> of spot price</div>
+  </section>
+
+  <section class="card">
+    <h2>x·y = k Invariant Health <span class="badge ok" id="health">—</span></h2>
+    <canvas id="kchart" width="640" height="300"></canvas>
+    <div class="row">
+      <span class="pill">current k <b id="kcur">–</b></span>
+      <span class="pill">peak k <b id="kpeak">–</b></span>
+      <span class="pill">max drawdown <b id="dd">–</b></span>
+      <span class="pill">extractions <b id="ext">–</b></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Escrow Lock Status <span class="badge" id="escrow-badge">—</span></h2>
+    <div id="escrow-body" class="sub">loading…</div>
+    <div class="checks" id="escrow-checks"></div>
+  </section>
+
+  <section class="card" style="grid-column:1/-1">
+    <h2>Engagement Leaderboard <span class="badge" id="lb-meta">PoA/PoU × Consistency Factor</span></h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>#</th><th>Pioneer</th><th>PoA</th><th>PoU</th><th>Active days</th><th>CF</th><th class="score-cell">Score</th></tr></thead>
+        <tbody id="lb"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Every number on this page comes from one verifiable snapshot assembled by
+  <code>src/dashboard.js</code> from registry-verified Ed25519 signatures only.
+  Reproduce locally: <code>git clone https://github.com/EslaM-X/pirc-pep-reference && cd pirc-pep-reference && npm run app</code><br>
+  Descriptive mathematics over caller-supplied reserves — this page does not price, value,
+  endorse or promote any asset.<br>
+  Pi, Pi Network and the Pi logo are trademarks of the Pi Community Company.
+  Community-built; not affiliated with or maintained by the Pi Core Team.
+  © 2026 EslaM-X · PiOS License
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=(n,d)=>Number(n).toLocaleString('en-US',{maximumFractionDigits:d??4});
+
+function badge(el,state,txt){el.className='badge '+(state?'ok':'bad');el.textContent=txt}
+
+function drawK(series){
+  const c=$('kchart'),ctx=c.getContext('2d');
+  const W=c.width,H=c.height,pad=34;
+  ctx.clearRect(0,0,W,H);
+  const ks=series.map(p=>p.k),min=Math.min(...ks)*.999,max=Math.max(...ks)*1.001;
+  const X=i=>pad+(W-2*pad)*i/(series.length-1);
+  const Y=v=>H-pad-(H-2*pad)*(v-min)/(max-min||1);
+  ctx.strokeStyle='#1e2941';ctx.lineWidth=1;
+  for(let g=0;g<=3;g++){const y=pad+(H-2*pad)*g/3;
+    ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(W-pad,y);ctx.stroke();
+    ctx.fillStyle='#8b98b3';ctx.font='16px monospace';
+    ctx.fillText(fmt(max-(max-min)*g/3,0),2,y+5);}
+  const grad=ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#f5c451');grad.addColorStop(1,'#3ddc97');
+  ctx.strokeStyle=grad;ctx.lineWidth=4;ctx.lineJoin='round';
+  series.forEach((p,i)=>{i?ctx.lineTo(X(i),Y(p.k)):ctx.moveTo(X(0),Y(p.k))});
+  ctx.stroke();
+  const last=series[series.length-1];
+  ctx.fillStyle='#3ddc97';
+  ctx.beginPath();ctx.arc(X(series.length-1),Y(last.k),6,0,7);ctx.fill();
+}
+
+function render(s){
+  const f=s.price_floor;
+  $('pfloor').textContent=f.p_floor_marginal.toPrecision(4);
+  $('spot').textContent=f.spot_price.toPrecision(4);
+  $('avg').textContent=f.p_floor_average_realized.toPrecision(4);
+  $('supply').textContent=fmt(f.circulating_supply,0);
+  const pct=Math.max(1,Math.min(100,f.floor_to_spot_ratio*100));
+  $('floor-ratio').style.width=pct+'%';
+  $('ratio-txt').textContent=(f.floor_to_spot_ratio*100).toFixed(2)+'%';
+
+  const ph=s.pool_health;
+  badge($('health'),ph.healthy,ph.healthy?'INTACT':'COMPROMISED');
+  $('kcur').textContent=fmt(ph.current_k,0);
+  $('kpeak').textContent=fmt(ph.peak_k,0);
+  $('dd').textContent=ph.max_drawdown_pct+'%';
+  $('ext').textContent=ph.extraction_events;
+  drawK(ph.invariant_series);
+
+  const e=s.escrow_lock_status,eb=$('escrow-badge'),body=$('escrow-body');
+  if(!e){eb.className='badge';eb.textContent='NOT PROVIDED';
+    body.textContent='No escrow attestation in this snapshot.';}
+  else if(e.verifiable){
+    badge(eb,true,'REVOKED & VERIFIED');
+    body.innerHTML=`<b>${e.escrow_id}</b> · state <b>${e.state}</b><br>`+
+      `previous key <span class="mono">${e.previous_key_fingerprint.slice(0,16)}…</span><br>`+
+      `anchor <span class="mono">${e.anchor.slice(0,26)}…</span>`;
+    $('escrow-checks').innerHTML=e.checks.map(c=>`<span class="check">✓ ${c.check}</span>`).join('');
+  }else{
+    badge(eb,false,'ATTESTATION INVALID');
+    body.textContent='The attached escrow attestation failed verification.';
+    $('escrow-checks').innerHTML=e.checks.filter(c=>!c.pass)
+      .map(c=>`<span class="check" style="color:var(--red)">✗ ${c.check}</span>`).join('');
+  }
+
+  const maxScore=Math.max(...s.engagement.leaderboard.map(r=>r.score),1);
+  $('lb').innerHTML=s.engagement.leaderboard.map(r=>`
+    <tr><td>${r.rank}</td>
+    <td class="mono" title="${r.pioneer_uid_hash}">${r.pioneer_uid_hash.slice(0,14)}…</td>
+    <td>${fmt(r.poa_points,1)}</td><td>${fmt(r.pou_points,1)}</td>
+    <td>${r.active_days}/${r.window_days}</td>
+    <td>${r.consistency_factor.toFixed(3)}</td>
+    <td class="score-cell"><div style="display:flex;align-items:center;gap:8px">
+      <b>${fmt(r.score,2)}</b>
+      <div class="score-bar" style="flex:1"><i style="width:${(r.score/maxScore*100)}%"></i></div>
+    </div></td></tr>`).join('');
+
+  badge($('live'),true,'LIVE');
+}
+
+fetch('/api/snapshot')
+  .then(r=>r.json())
+  .then(render)
+  .catch(err=>{
+    const e=$('err');e.style.display='block';
+    e.textContent='Failed to load snapshot: '+err.message;
+    badge($('live'),false,'OFFLINE');
+  });
+</script>
+</body>
+</html>

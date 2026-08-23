@@ -279,6 +279,7 @@ top of the PEP/1 trust layer:
 
 ```bash
 npm run transparency   # end-to-end demo snapshot
+npm run app            # live single-page Transparency Dashboard (localhost:8787)
 ```
 
 **Scope discipline:** these modules describe AMM mathematics over

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-23
+
+### Added — Pi Transparency App
+
+- **`app/`** — single-page Transparency Dashboard ready for Pi Browser-style
+  environments: dynamic p_floor card with floor/spot ratio bar, x·y=k
+  invariant chart, escrow lock status with per-check verification badges,
+  and the PoA/PoU × Consistency Factor leaderboard. Zero build step, zero
+  runtime dependencies.
+- **`app/server.mjs`** — zero-dependency Node server exposing
+  `GET /` (dashboard) and `GET /api/snapshot` (fresh snapshot assembled from
+  the verified-event pipeline on every request). Run with `npm run app`.
+- **`app/app.test.js`** — endpoint + snapshot integrity tests (CI total is now 61).
+
 ## [0.4.0] - 2026-08-23
 
 ### Changed — License
