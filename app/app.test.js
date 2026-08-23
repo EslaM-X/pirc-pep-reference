@@ -105,3 +105,53 @@ test('PiProof explorer endpoints verify, replay-catch and enforce policy', async
     server.close();
   }
 });
+
+test('share API issues short /p/<id> links that redirect to verifiable documents', async () => {
+  const server = createAppServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const base = `http://127.0.0.1:${port}`;
+
+  try {
+    const sample = await (await fetch(`${base}/api/sample-passport`)).json();
+    assert.equal(sample.passport.type, 'AUREVIA-Evidence-Passport');
+
+    const shared = await fetch(`${base}/api/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ doc: sample.passport })
+    });
+    assert.equal(shared.status, 200);
+    const { id } = await shared.json();
+    assert.match(id, /^[0-9a-f]{12}$/);
+
+    const redir = await fetch(`${base}/p/${id}`, { redirect: 'manual' });
+    assert.equal(redir.status, 302);
+    const loc = redir.headers.get('location');
+    assert.match(loc, /^\/verify#p=[A-Za-z0-9_-]+$/);
+
+    // the redirected fragment must decode back to the exact shared document
+    const frag = loc.split('#p=')[1];
+    const b64 = frag.replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(b64, 'base64').toString('utf8');
+    assert.deepEqual(JSON.parse(json), sample.passport);
+
+    const missing = await fetch(`${base}/p/deadbeefdead`, { redirect: 'manual' });
+    assert.equal(missing.status, 404);
+
+    const malformedId = await fetch(`${base}/p/../../etc`, { redirect: 'manual' });
+    assert.equal(malformedId.status, 404);
+
+    const badType = await fetch(`${base}/api/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ doc: { type: 'NotAThing' } })
+    });
+    assert.equal(badType.status, 400);
+
+    const malformed = await fetch(`${base}/api/share`, { method: 'POST', body: '{oops' });
+    assert.equal(malformed.status, 400);
+  } finally {
+    server.close();
+  }
+});

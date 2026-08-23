@@ -314,6 +314,12 @@
     <div class="pp-grid">
       <div class="pp-left">
         <div class="pass-form">
+          <label><span data-i18n="pass_issuer">Issuer</span>
+            <select id="pass-issuer">
+              <option value="demo-app">Demo App</option>
+              <option value="marketplace-demo" selected>Demo Marketplace</option>
+              <option value="demo-agent-service">Demo Agent Service</option>
+            </select></label>
           <label><span data-i18n="pass_class">Event class</span>
             <select id="pass-class"><option value="A">A · high-value</option><option value="B">B · KYC</option><option value="C" selected>C · daily</option></select></label>
           <label><span data-i18n="pass_action">Action</span>
@@ -325,6 +331,7 @@
         </div>
         <div class="pirow">
           <button class="btn" id="pass-issue" data-i18n="pass_issue">Issue &amp; Sign</button>
+          <button class="btn ghost" id="pass-demo" data-i18n="pass_demo">▶ Run the 60-second demo</button>
           <button class="btn ghost" id="pass-download" disabled data-i18n="pass_download">Download .json</button>
           <button class="btn ghost" id="pass-share" disabled data-i18n="pass_share">Copy share link</button>
           <button class="btn ghost" id="pass-send" disabled data-i18n="pass_send">Open in Explorer</button>
@@ -444,6 +451,7 @@ const I18N = {
     pass_class:"Event class", pass_action:"Action", pass_weight:"Weight (1–10000)",
     pass_subject:"Subject (pseudonymous)", pass_issue:"Issue & Sign",
     pass_download:"Download .json", pass_share:"Copy share link",
+    pass_issuer:"Issuer", pass_demo:"▶ Run the 60-second demo",
     pass_send:"Open in Explorer", pass_import:"Import proof / passport",
     pass_idle:"AWAITING PASSPORT", pass_valid:"✓ PASSPORT VALID", pass_invalid:"✗ INVALID PASSPORT",
     pass_created:"Proof issued & signed — passport ready",
@@ -501,6 +509,7 @@ const I18N = {
     pass_class:"فئة الحدث", pass_action:"الإجراء", pass_weight:"الوزن (1–10000)",
     pass_subject:"الموضوع (اسم مستعار)", pass_issue:"إصدار وتوقيع",
     pass_download:"تنزيل .json", pass_share:"نسخ رابط المشاركة",
+    pass_issuer:"الجهة المُصدِرة", pass_demo:"▶ شغّل العرض خلال 60 ثانية",
     pass_send:"فتح في المستكشف", pass_import:"استيراد إثبات / جواز",
     pass_idle:"بانتظار الجواز", pass_valid:"✓ الجواز صالح", pass_invalid:"✗ الجواز غير صالح",
     pass_created:"تم إصدار الإثبات وتوقيعه — الجواز جاهز",
@@ -778,6 +787,7 @@ $('pass-issue').onclick=async()=>{
     const r=await fetch('api/passport-issue',{method:'POST',
       headers:{'content-type':'application/json'},
       body:JSON.stringify({
+        issuer:$('pass-issuer').value,
         action_class:$('pass-class').value,
         action_id:$('pass-action').value,
         weight:Number($('pass-weight').value),
@@ -804,7 +814,13 @@ const b64u=s=>btoa(Array.from(new TextEncoder().encode(s),c=>String.fromCharCode
   .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 $('pass-share').onclick=async()=>{
   if(!PASS.passport)return;
-  const link=location.href.split('#')[0]+'#p='+b64u(JSON.stringify(PASS.passport));
+  const frag=location.href.split('#')[0]+'#p='+b64u(JSON.stringify(PASS.passport));
+  let link=frag;
+  try{
+    const r=await fetch('api/share',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({doc:PASS.passport})});
+    if(r.ok){const j=await r.json();if(j.id)link=location.origin+'/p/'+j.id;}
+  }catch(e){/* static deployment — fragment link still works */}
   try{await navigator.clipboard.writeText(link);toast(t('share_copied'),'ok');}
   catch(e){window.prompt('',link);}
 };
@@ -813,6 +829,62 @@ $('pass-send').onclick=()=>{
   $('pp-in').value=JSON.stringify(PASS.passport,null,2);
   document.getElementById('pp-card').scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(ppVerify,350);
+};
+/* ---------- Guided 60-second demo ---------- */
+const AR=(en,ar)=>lang==='ar'?ar:en;
+const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+const bumpFirstWeight=(o)=>{
+  if(!o||typeof o!=='object')return false;
+  if(o.event&&typeof o.event.weight==='number'){o.event.weight*=1000;return true;}
+  for(const v of Object.values(o)){if(bumpFirstWeight(v))return true;}
+  return false;
+};
+async function waitForPassport(){
+  let tries=0;
+  while((PASS.busy||!PASS.passport)&&tries++<60)await wait(100);
+  if(!PASS.passport)throw new Error(AR('issue failed','فشل الإصدار'));
+}
+$('pass-demo').onclick=async()=>{
+  const btn=$('pass-demo');
+  if(btn.disabled)return;
+  if($('pass-issue').disabled)return toast(t('pp_static'),'bad');
+  btn.disabled=true;
+  try{
+    $('pass-issuer').value='marketplace-demo';
+    $('pass-class').value='A';fillActions();
+    $('pass-action').value='complete_transaction';
+    $('pass-weight').value='100';
+    $('pass-subject').value='alice-demo';
+    toast(AR('① Issue — completed transaction · weight 100 · issuer: Demo Marketplace','① إصدار — عملية مكتملة · وزن 100 · الجهة: Demo Marketplace'));
+    await wait(900);
+    $('pass-issue').click();
+    await waitForPassport();
+    toast('✓ PROOF CREATED','ok');
+    await wait(1300);
+    $('pass-send').click();
+    toast(AR('② Verify independently against your own registry state','② تحقق مستقل مقابل حالة السجل لديك'));
+    await wait(1900);
+    toast(AR('✓ VALID — every signature, nonce and policy check passes','✓ VALID — كل التوقيعات والـnonce والسياسة صحيحة'),'ok');
+    await wait(1300);
+    const doc=JSON.parse($('pp-in').value);
+    if(bumpFirstWeight(doc))$('pp-in').value=JSON.stringify(doc,null,2);
+    toast(AR('③ Tamper — weight 100 → 100,000, signature left untouched','③ عبث — الوزن 100 ← 100,000 دون تحديث التوقيع'));
+    ppVerify();
+    await wait(1900);
+    toast(AR('✗ INVALID — the tampered document is rejected instantly','✗ INVALID — الوثيقة المعبوثة تُرفض فورًا'),'bad');
+    await wait(1300);
+    $('pp-in').value=JSON.stringify(PASS.passport,null,2);
+    toast(AR('④ Restore the original document','④ استعادة الوثيقة الأصلية'));
+    ppVerify();
+    await wait(1700);
+    toast(AR('✓ VALID again — carry it anywhere, verify it anywhere','✓ VALID مجددًا — خذها معك وتحقق منها في أي مكان'),'ok');
+    await wait(1100);
+    const dl=$('pass-download');
+    dl.style.outline='2px solid var(--gold)';
+    setTimeout(()=>{dl.style.outline='';},3000);
+    toast(AR('⑤ Download proof-passport.json — anyone can run: npx piproof passport-verify proof-passport.json','⑤ نزّل proof-passport.json — أي شخص يستطيع تنفيذ: npx piproof passport-verify proof-passport.json'),'ok');
+  }catch(e){toast(e.message,'bad');}
+  btn.disabled=false;
 };
 $('pass-file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;

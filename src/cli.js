@@ -260,8 +260,8 @@ function cmdProofExport(flags) {
   if (flags.out) console.log(`PiProof written to ${flags.out}`);
 }
 
-function cmdProofVerify(flags) {
-  const proof = readJson(flags.proof);
+function cmdProofVerify(flags, posArg) {
+  const proof = readJson(flags.proof ?? posArg);
   const registry = readJson(flags.registry);
   const policy = flags.policy ? readJson(flags.policy) : null;
   const nonceStore = flags.nonces
@@ -296,8 +296,8 @@ function cmdPassportCreate(flags) {
   }
 }
 
-function cmdPassportVerify(flags) {
-  const passport = readJson(flags.passport);
+function cmdPassportVerify(flags, posArg) {
+  const passport = readJson(flags.passport ?? posArg);
   const registry = readJson(flags.registry);
   const policy = flags.policy ? readJson(flags.policy) : null;
   const nonceStore = flags.nonces
@@ -309,8 +309,8 @@ function cmdPassportVerify(flags) {
   process.exitCode = result.ok ? 0 : 1;
 }
 
-function cmdDispute(flags) {
-  const doc = readJson(flags.doc);
+function cmdDispute(flags, posArg) {
+  const doc = readJson(flags.doc ?? posArg);
   const registry = flags.registry ? readJson(flags.registry) : null;
   const policy = flags.policy ? readJson(flags.policy) : null;
   const nonceStore = flags.nonces
@@ -356,10 +356,10 @@ function main() {
     case 'sign': return cmdSign(flags);
     case 'verify': return cmdVerify(flags);
     case 'proof-export': return cmdProofExport(flags);
-    case 'proof-verify': return cmdProofVerify(flags);
+    case 'proof-verify': return cmdProofVerify(flags, positional[1]);
     case 'passport-create': return cmdPassportCreate(flags);
-    case 'passport-verify': return cmdPassportVerify(flags);
-    case 'dispute': return cmdDispute(flags);
+    case 'passport-verify': return cmdPassportVerify(flags, positional[1]);
+    case 'dispute': return cmdDispute(flags, positional[1]);
     case 'attacks': {
       const results = runAttackSuite();
       console.log(formatAttackReport(results));
