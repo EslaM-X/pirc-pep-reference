@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-24
+
+### Added — Pi SDK integration + full UX/UI overhaul
+
+- **Official Pi SDK integration** (`app/index.html`): dynamic load of
+  `pi-sdk.js`, `Pi.init({version:'2.0'})`, `Pi.authenticate(['username',
+  'payments'])` rendering the signed-in Pioneer, and a `Pi.createPayment`
+  support flow demonstrating the U2A path. Outside Pi Browser the app
+  degrades to an honest **preview mode**.
+- **Bilingual interface (English / العربية)** with a full RTL layout switch,
+  persisted in localStorage — including localized numerals.
+- **UX overhaul**: glassmorphism cards over an animated aurora background,
+  skeleton loaders, count-up number animations, staggered card reveals,
+  toast notification system, medal ranks on the leaderboard, HiDPI canvas
+  chart with gradient area fill and glowing endpoint, keyboard focus rings
+  and `prefers-reduced-motion` support, PWA manifest for standalone install.
+- **Brand assets**: original author artwork preserved verbatim at
+  `app/assets/brand/identity-original.jpeg`; vector icon at
+  `app/assets/icon.svg` (favicon + maskable PWA icon); palette centralized
+  in CSS custom properties for one-block re-theming.
+- Server now serves `/assets/*` (with traversal guard) and
+  `/manifest.webmanifest`; endpoint test coverage extended accordingly
+  (CI total 61).
+
 ## [0.5.0] - 2026-08-23
 
 ### Added — Pi Transparency App
