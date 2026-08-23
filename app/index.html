@@ -188,6 +188,13 @@
   .pass-head b{color:var(--ink)}
   .pp-grouplabel{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--gold);
     text-transform:uppercase;padding:6px 2px 0}
+  .dispute-table{width:100%;border-collapse:collapse;margin:14px 0 4px;font-size:13.5px}
+  .dispute-table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .dispute-table td.q{color:#f5c451;font-weight:800;white-space:nowrap;width:1%}
+  .dispute-table td.s{text-align:center;font-weight:900;letter-spacing:.06em;white-space:nowrap}
+  .dispute-table td.s.OK{color:var(--a3)} .dispute-table td.s.INVALID{color:var(--red)}
+  .dispute-table td.s.UNVERIFIABLE{color:var(--gold)}
+  .dispute-table .mono{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim);word-break:break-all}
 </style>
 </head>
 <body>
@@ -211,6 +218,7 @@
 <div class="hero-line">
   <b data-i18n="hero_1">Don't trust the app. Verify the proof.</b><br>
   <span data-i18n="hero_2">PiProof lets applications issue cryptographically verifiable proofs that independent parties can verify against their own trusted state.</span>
+  <span class="unit dim" style="display:block;margin-top:9px" data-i18n="carry_tagline">Proofs you can carry. Evidence anyone can verify.</span>
 </div>
 
 <main>
@@ -320,6 +328,8 @@
           <button class="btn ghost" id="pass-download" disabled data-i18n="pass_download">Download .json</button>
           <button class="btn ghost" id="pass-share" disabled data-i18n="pass_share">Copy share link</button>
           <button class="btn ghost" id="pass-send" disabled data-i18n="pass_send">Open in Explorer</button>
+          <button class="btn ghost" id="dispute-run" data-i18n="dispute_btn">Generate dispute report</button>
+          <a class="btn ghost" id="verify-link" href="verify.html" data-i18n="verify_link">Public verification</a>
           <label class="btn ghost" style="display:inline-flex;align-items:center">
             <span data-i18n="pass_import">Import proof / passport</span>
             <input id="pass-file" type="file" accept=".json,application/json" hidden>
@@ -338,6 +348,40 @@
         </details>
       </div>
     </div>
+  </section>
+
+  <!-- Dispute Mode -->
+  <section class="card" id="dispute-card">
+    <h2><span data-i18n="dispute_h">Dispute Mode</span>
+        <span class="badge neutral" data-i18n="dispute_sub">From claim to final verdict</span></h2>
+    <div id="dispute-verdict" class="pp-banner idle" data-i18n="dispute_idle">NO DISPUTE REPORT YET</div>
+    <table class="dispute-table" id="dispute-chain" hidden></table>
+    <div class="pirow">
+      <button class="btn ghost" id="dispute-export" disabled data-i18n="dispute_export">Export report (.json)</button>
+    </div>
+    <p class="unit dim" data-i18n="dispute_note"></p>
+  </section>
+
+  <!-- Agent Evidence -->
+  <section class="card" id="agent-card">
+    <h2><span data-i18n="agent_h">Agent Evidence</span>
+        <span class="badge neutral" data-i18n="agent_sub">AI accountability trail</span></h2>
+    <div class="pass-form">
+      <label><span data-i18n="agent_name">Agent id</span>
+        <input id="agent-name" type="text" value="alpha" maxlength="32" spellcheck="false"></label>
+      <label><span data-i18n="agent_task">Completed task</span>
+        <select id="agent-task">
+          <option value="data_labeling_47">data_labeling_47</option>
+          <option value="summarize_batch_12">summarize_batch_12</option>
+          <option value="translate_docs_9">translate_docs_9</option>
+        </select></label>
+      <label><span data-i18n="agent_weight">Weight</span>
+        <input id="agent-weight" type="number" min="1" max="100" value="10"></label>
+    </div>
+    <div class="pirow">
+      <button class="btn" id="agent-issue" data-i18n="agent_issue">Issue agent evidence</button>
+    </div>
+    <p class="unit dim" data-i18n="agent_note"></p>
   </section>
 </main>
 
@@ -406,7 +450,17 @@ const I18N = {
     share_copied:"Share link copied — anyone holding it can verify independently",
     file_loaded:"File loaded into verifier", issue_fail:"Issuer rejected the request",
     pass_why:"Why carry a passport?",
-    pass_why_body:"An Evidence Passport bundles signed PEP/1 events under one content-addressed evidence root, bound to a pseudonymous subject. The holder — not the platform — carries the evidence. Anyone with the file or its share link re-checks every signature against their own trusted registry: no account, no trust in the issuing app. Don't trust the platform; verify the claim."
+    pass_why_body:"An Evidence Passport bundles signed PEP/1 events under one content-addressed evidence root, bound to a pseudonymous subject. The holder — not the platform — carries the evidence. Anyone with the file or its share link re-checks every signature against their own trusted registry: no account, no trust in the issuing app. Don't trust the platform; verify the claim.",
+    carry_tagline:"Proofs you can carry. Evidence anyone can verify.",
+    dispute_h:"Dispute Mode", dispute_sub:"From claim to final verdict",
+    dispute_btn:"Generate dispute report", dispute_export:"Export report (.json)",
+    dispute_idle:"NO DISPUTE REPORT YET", dispute_source:"Source document",
+    dispute_note:"A dispute replaces screenshots and scattered logs with one adjudicable chain: who issued it, what was signed, which policy, which epoch, replayed?, key valid?, within policy? Three honest outcomes only: VALID · INVALID · UNVERIFIABLE. UNVERIFIABLE is never treated as a pass.",
+    agent_h:"Agent Evidence", agent_sub:"AI accountability trail",
+    agent_name:"Agent id", agent_task:"Completed task", agent_weight:"Weight",
+    agent_issue:"Issue agent evidence",
+    agent_note:"When an AI agent completes a task, its service signs the action; policy verification turns it into a proof; the proof becomes a portable audit trail any party can independently check.",
+    verify_link:"Public verification"
   },
   ar:{
     title:"AUREVIA",
@@ -453,7 +507,17 @@ const I18N = {
     share_copied:"نُسخ رابط المشاركة — أي حامل له يستطيع التحقق بشكل مستقل",
     file_loaded:"حُمّل الملف إلى المدقق", issue_fail:"رفض المُصدر الطلب",
     pass_why:"لماذا تحمل جوازًا؟",
-    pass_why_body:"يجمع جواز الإثبات أحداث PEP/1 موقّعة تحت جذر إثبات واحد معنون بالمحتوى، مرتبط بموضوع يحمل اسمًا مستعارًا. الحامل — لا المنصة — هو من يحمل الدليل. أي شخص لديه الملف أو رابط المشاركة يعيد فحص كل توقيع مقابل سجله الموثوق الخاص: بلا حساب، وبلا ثقة في التطبيق المُصدر. لا تثق بالمنصة؛ تحقّق من الادعاء."
+    pass_why_body:"يجمع جواز الإثبات أحداث PEP/1 موقّعة تحت جذر إثبات واحد معنون بالمحتوى، مرتبط بموضوع يحمل اسمًا مستعارًا. الحامل — لا المنصة — هو من يحمل الدليل. أي شخص لديه الملف أو رابط المشاركة يعيد فحص كل توقيع مقابل سجله الموثوق الخاص: بلا حساب، وبلا ثقة في التطبيق المُصدر. لا تثق بالمنصة؛ تحقّق من الادعاء.",
+    carry_tagline:"أدلة تحملها معك. إثباتات يتحقق منها أي أحد.",
+    dispute_h:"وضع النزاعات", dispute_sub:"من الادعاء إلى الحكم النهائي",
+    dispute_btn:"توليد تقرير النزاع", dispute_export:"تصدير التقرير (.json)",
+    dispute_idle:"لا يوجد تقرير نزاع بعد", dispute_source:"المستند المصدر",
+    dispute_note:"النزاع يستبدل لقطات الشاشة والسجلات المتفرقة بسلسلة واحدة قابلة للفصل: من أصدره؟ ماذا وُقّع؟ أي سياسة؟ أي حقبة؟ هل أُعيد إصداره؟ هل المفتاح سليم؟ هل الادعاء داخل السياسة؟ ثلاث نتائج صادقة فقط: صالح · غير صالح · غير قابل للتحقق. «غير قابل للتحقق» لا يُعتبر نجاحًا أبدًا.",
+    agent_h:"أدلة الوكلاء", agent_sub:"سجل مساءلة الذكاء الاصطناعي",
+    agent_name:"معرّف الوكيل", agent_task:"المهمة المكتملة", agent_weight:"الوزن",
+    agent_issue:"إصدار دليل وكيل",
+    agent_note:"عندما يُكمل وكيل ذكاء اصطناعي مهمة، توقّع خدمته الإجراء؛ فيتحقق محرك السياسات منه فيصبح إثباتًا؛ والإثبات يصبح سجل تدقيق محمولًا يستطيع أي طرف التحقق منه باستقلالية.",
+    verify_link:"تحقق عام"
   }
 };
 let lang = localStorage.getItem('lang') || 'en';
@@ -688,9 +752,11 @@ function renderPassport(r){
   passBanner(r.ok?'ok':'bad',r.ok?t('pass_valid'):t('pass_invalid'));
   const head=$('pass-head');
   if(r.summary){
+    const issuers=[...new Set((r.results||[]).map(x=>x.event?.app_id).filter(Boolean))];
     head.hidden=false;
     head.innerHTML=`<span>${esc(t('pass_subject'))}: <b>${esc(r.summary.subject??'—')}</b></span>`+
       `<span>proofs <b>${r.summary.proofs_valid}/${r.summary.proofs_total}</b></span>`+
+      (issuers.length?`<span title="${esc(issuers.join(', '))}">issuers <b>${esc(issuers.length)}</b></span>`:'')+
       `<span title="${esc(r.summary.evidence_root)}">root <b>${esc(String(r.summary.evidence_root).slice(0,14))}…</b></span>`;
   }else head.hidden=true;
   let html=r.steps.map(stepHtml).join('');
@@ -723,6 +789,7 @@ $('pass-issue').onclick=async()=>{
     $('pass-out').value=JSON.stringify(j.passport,null,2);
     ['pass-download','pass-share','pass-send'].forEach(id=>$(id).disabled=false);
     toast(t('pass_created'),'ok');
+    setTimeout(()=>{ppVerify();setTimeout(runDispute,900);},300);
   }catch(e){toast(e.message,'bad');}
   PASS.busy=false;
 };
@@ -772,6 +839,71 @@ $('pass-file').onchange=e=>{
     setTimeout(ppVerify,500);
   }catch(e){}
 })();
+
+/* ---------- Dispute Mode ---------- */
+const DISPUTE={report:null};
+function disputeBanner(state,txt){const b=$('dispute-verdict');b.className='pp-banner '+state;b.textContent=txt;}
+async function runDispute(){
+  let doc=null;
+  try{
+    if(PASS.passport)doc=PASS.passport;
+    else if($('pass-out').value.trim())doc=JSON.parse($('pass-out').value);
+    else doc=JSON.parse($('pp-in').value);
+  }catch(e){return toast(t('pp_bad_json'),'bad');}
+  try{
+    const r=await fetch('api/dispute',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({doc})});
+    DISPUTE.report=await r.json();
+  }catch(e){return toast('dispute engine unreachable: '+e.message,'bad');}
+  renderDispute(DISPUTE.report);
+}
+function renderDispute(rep){
+  const v=rep.verdict;
+  disputeBanner(v==='VALID'?'ok':v==='INVALID'?'bad':'idle',
+    v==='VALID'?'✓ VALID':v==='INVALID'?'✗ INVALID':'? UNVERIFIABLE');
+  const tbl=$('dispute-chain');
+  tbl.hidden=false;
+  tbl.innerHTML=rep.chain.map(c=>{
+    const ans=typeof c.answer==='object'&&c.answer!==null
+      ?`<span class="mono" title="${esc(JSON.stringify(c.answer))}">${esc(JSON.stringify(c.answer).slice(0,120))}${JSON.stringify(c.answer).length>120?'…':''}</span>`
+      :esc(String(c.answer));
+    return `<tr><td class="q">${esc(c.question.replace(/_/g,' '))}</td><td>${ans}</td><td class="s ${c.status}">${c.status==='OK'?'✓ OK':c.status}</td></tr>`;
+  }).join('');
+  $('dispute-export').disabled=false;
+}
+$('dispute-run').onclick=runDispute;
+$('dispute-export').onclick=()=>{
+  if(!DISPUTE.report)return;
+  const blob=new Blob([JSON.stringify(DISPUTE.report,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='dispute-report.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+};
+
+/* ---------- Agent Evidence ---------- */
+$('agent-issue').onclick=async()=>{
+  if(PASS.busy)return;
+  PASS.busy=true;
+  try{
+    const r=await fetch('api/agent-evidence',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        agent:$('agent-name').value.trim(),
+        task:$('agent-task').value,
+        weight:Number($('agent-weight').value)
+      })});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||t('issue_fail'));
+    PASS.passport=j.passport;
+    $('pass-out').value=JSON.stringify(j.passport,null,2);
+    ['pass-download','pass-share','pass-send'].forEach(id=>$(id).disabled=false);
+    toast(t('pass_created'),'ok');
+    document.getElementById('pass-card').scrollIntoView({behavior:'smooth',block:'start'});
+    setTimeout(()=>{ppVerify();setTimeout(runDispute,900);},300);
+  }catch(e){toast(e.message,'bad');}
+  PASS.busy=false;
+};
 
 /* ---------- boot ---------- */
 applyLang();

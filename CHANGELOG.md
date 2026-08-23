@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-24
+
+### Added — AUREVIA Evidence Network: public verification, Dispute Mode, cross-application proofs, Agent Evidence
+
+Completes the flagship arc on top of v0.8.0's Proof Passport:
+
+- **Public verification page (`/verify`)** — open a `…/verify#p=<document>`
+  link: no account, no trust in the holder, full checklist and a big
+  PROOF VERIFIED / INVALID verdict. Static deployments honestly render the
+  self-declared structural view plus the exact CLI command to reproduce.
+- **Dispute Engine (`src/dispute.js`)** — replaces screenshots and
+  scattered logs with one adjudicable chain: CLAIM → WHO ISSUED IT →
+  WHAT WAS SIGNED (canonical fingerprints) → WHICH POLICY → WHICH EPOCH →
+  WAS IT REPLAYED → IS THE KEY VALID → IS THE CLAIM WITHIN POLICY → FINAL
+  VERDICT. Three honest outcomes only — **VALID / INVALID / UNVERIFIABLE**
+  — and UNVERIFIABLE is never treated as a pass (no trusted registry ⇒ no
+  adjudication). Available as CLI `dispute`, `POST /api/dispute`, and a
+  dashboard section with report export.
+- **Cross-application proofs** — the demo registry epoch now hosts three
+  independent issuers (`demo-app`, `marketplace-demo`,
+  `demo-agent-service`), each with its own key; sample passports are
+  dual-issuer, proving App-A + App-B evidence verifies against one
+  verifier state. `/api/passport-issue` accepts an `issuer` parameter.
+- **Agent Evidence (AI accountability)** — when an agent completes a task,
+  `demo-agent-service` signs it (`complete_task`, subject `agent-<id>`);
+  policy verification turns it into a portable audit trail.
+  `POST /api/agent-evidence` + dashboard card.
+- **Killer-demo flow wired end-to-end**: Issue & Sign → verify → tamper →
+  export → dispute report, each step feeding the next automatically.
+
+### Tests
+
+91 total (was 82): dispute unit suite (chain order, three-state honesty,
+replay flagging, cross-issuer verdicts, junk handling) + API coverage for
+`/verify`, agent evidence, dispute endpoint.
+
 ## [0.8.0] - 2026-08-24
 
 ### Added — AUREVIA Proof Passport: one portable evidence record

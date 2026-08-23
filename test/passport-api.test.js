@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAppServer, makeSamplePassport, issuePassport } from '../app/server.mjs';
-
 async function withServer(fn) {
   const server = createAppServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -93,4 +92,62 @@ test('module-level issuers stay consistent with their exported helpers', () => {
   assert.equal(viaHelper.proofs.length, 1);
   assert.equal(typeof viaHelper.evidence_root, 'string');
   assert.throws(() => issuePassport({ action_class: 'A', action_id: 'nope', weight: 5 }));
+});
+
+test('sample passport is cross-application: two independent issuers verify against one epoch', async () => {
+  await withServer(async (base) => {
+    const { passport } = await (await fetch(base + '/api/sample-passport')).json();
+    const issuers = passport.proofs.map((p) => p.event.app_id);
+    assert.ok(issuers.includes('demo-app'));
+    assert.ok(issuers.includes('marketplace-demo'));
+    const v = await post(base, '/api/verify-passport', { passport });
+    assert.equal(v.json.ok, true, JSON.stringify(v.json));
+    assert.equal(v.json.summary.proofs_valid, 2);
+  });
+});
+
+test('POST /api/agent-evidence issues a signed agent accountability record', async () => {
+  await withServer(async (base) => {
+    const ok = await post(base, '/api/agent-evidence', { agent: 'alpha', task: 'data_labeling_47', weight: 10 });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.json.passport.subject, 'agent-alpha');
+    assert.equal(ok.json.passport.proofs[0].event.app_id, 'demo-agent-service');
+    assert.equal(ok.json.passport.proofs[0].event.action_id, 'complete_task');
+
+    const v = await post(base, '/api/verify-passport', { passport: ok.json.passport });
+    assert.equal(v.json.ok, true);
+
+    for (const bad of [{ agent: 'Bad Agent' }, { task: 'UPPER_CASE' }, { agent: 'ok', weight: 0 }]) {
+      const res = await post(base, '/api/agent-evidence', bad);
+      assert.equal(res.status, 400, JSON.stringify(bad));
+    }
+  });
+});
+
+test('POST /api/dispute returns the full adjudication chain', async () => {
+  await withServer(async (base) => {
+    const issued = await post(base, '/api/passport-issue', {
+      action_class: 'A', action_id: 'complete_transaction', weight: 100
+    });
+    const rep = await post(base, '/api/dispute', { doc: issued.json.passport });
+    assert.equal(rep.status, 200);
+    assert.equal(rep.json.verdict, 'VALID');
+    assert.deepEqual(rep.json.chain.map((c) => c.question), [
+      'CLAIM', 'WHO_ISSUED_IT', 'WHAT_WAS_SIGNED', 'WHICH_POLICY', 'WHICH_EPOCH',
+      'WAS_IT_REPLAYED', 'IS_THE_KEY_VALID', 'IS_THE_CLAIM_WITHIN_POLICY', 'FINAL_VERDICT'
+    ]);
+
+    const junk = await post(base, '/api/dispute', { doc: { nope: 1 } });
+    assert.equal(junk.json.verdict, 'UNVERIFIABLE');
+  });
+});
+
+test('GET /verify serves the public verification page', async () => {
+  await withServer(async (base) => {
+    const r = await fetch(base + '/verify');
+    assert.equal(r.status, 200);
+    const html = await r.text();
+    assert.ok(html.includes('Public verification'));
+    assert.ok(html.includes('PROOF VERIFIED'));
+  });
 });

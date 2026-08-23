@@ -12,6 +12,7 @@ import { createRevocationAttestation } from '../src/escrow.js';
 import { assembleSnapshot } from '../src/dashboard.js';
 import { toPiProof, verifyPiProof } from '../src/piproof.js';
 import { createPassport, verifyPassport } from '../src/passport.js';
+import { buildDisputeReport as disputeReport } from '../src/dispute.js';
 
 /**
  * Pi Transparency App — local preview server.
@@ -31,9 +32,25 @@ const DAY = 86_400_000;
 // Long-lived verifier state for the PiProof Explorer: the registry epoch and
 // the nonce store persist for the whole server lifetime, so a replayed proof
 // is rejected on its second submission, exactly like a real deployment.
+// Three independent issuers share this one epoch — cross-application proofs
+// and agent evidence verify against the same trusted state.
 const PROOF_WORLD = makeWorld();
 markEligible(PROOF_WORLD.registry, hashUid('pioneer-alice', SUITE_UID_SECRET));
 markEligible(PROOF_WORLD.registry, hashUid('pioneer-bob', SUITE_UID_SECRET));
+
+const MARKET_KEY = generateKeyPair({ seed: Buffer.alloc(32, 0xab) });
+const AGENT_KEY = generateKeyPair({ seed: Buffer.alloc(32, 0xcd) });
+registerApp(PROOF_WORLD.registry, 'marketplace-demo');
+registerKey(PROOF_WORLD.registry, 'marketplace-demo', 'mk-key-2026', MARKET_KEY.public_key_pem);
+registerApp(PROOF_WORLD.registry, 'demo-agent-service');
+registerKey(PROOF_WORLD.registry, 'demo-agent-service', 'ag-key-2026', AGENT_KEY.public_key_pem);
+
+const ISSUER_KEYS = Object.freeze({
+  'demo-app': { key_id: 'k-2026-active', private_key_pem: PROOF_WORLD.currentKey.private_key_pem },
+  'marketplace-demo': { key_id: 'mk-key-2026', private_key_pem: MARKET_KEY.private_key_pem },
+  'demo-agent-service': { key_id: 'ag-key-2026', private_key_pem: AGENT_KEY.private_key_pem }
+});
+
 const PROOF_NONCES = new InMemoryNonceStore();
 
 export function makeSampleProof(now = Date.now()) {
@@ -53,16 +70,18 @@ export function makeSampleProof(now = Date.now()) {
 }
 
 const ACTION_CATALOG = Object.freeze({
-  A: ['complete_transaction'],
+  A: ['complete_transaction', 'complete_task'],
   B: ['finish_kyc_flow'],
   C: ['daily_login']
 });
 const SUBJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 
-function issueSignedProof({ actionClass, actionId, weight, pioneerUid }, now = Date.now()) {
+function issueSignedProof({ issuer = 'demo-app', actionClass, actionId, weight, pioneerUid }, now = Date.now()) {
+  const issuerKey = ISSUER_KEYS[issuer];
+  if (!issuerKey) throw new Error(`unknown issuer: ${issuer}`);
   const event = newEvent({
-    app_id: 'demo-app',
-    key_id: 'k-2026-active',
+    app_id: issuer,
+    key_id: issuerKey.key_id,
     action_class: actionClass,
     action_id: actionId,
     weight,
@@ -71,15 +90,15 @@ function issueSignedProof({ actionClass, actionId, weight, pioneerUid }, now = D
     now
   });
   event.pioneer_uid_hash = hashUid(pioneerUid, SUITE_UID_SECRET);
-  return toPiProof(signEvent(event, PROOF_WORLD.currentKey.private_key_pem), {
+  return toPiProof(signEvent(event, issuerKey.private_key_pem), {
     registry: PROOF_WORLD.registry
   });
 }
 
 export function makeSamplePassport(now = Date.now()) {
   const proofs = [
-    issueSignedProof({ actionClass: 'A', actionId: 'complete_transaction', weight: 50, pioneerUid: 'pioneer-alice' }, now),
-    issueSignedProof({ actionClass: 'B', actionId: 'finish_kyc_flow', weight: 8, pioneerUid: 'pioneer-alice' }, now)
+    issueSignedProof({ issuer: 'demo-app', actionClass: 'A', actionId: 'complete_transaction', weight: 50, pioneerUid: 'pioneer-alice' }, now),
+    issueSignedProof({ issuer: 'marketplace-demo', actionClass: 'B', actionId: 'finish_kyc_flow', weight: 8, pioneerUid: 'pioneer-alice' }, now)
   ];
   return createPassport({ proofs, subject: 'alice-demo', createdAt: now });
 }
@@ -89,12 +108,15 @@ const DEMO_HOLDERS = Object.freeze({
   'bob-demo': 'pioneer-bob'
 });
 
-export function issuePassport({ action_class, action_id, weight, subject } = {}, now = Date.now()) {
+export function issuePassport({ action_class, action_id, weight, subject, issuer } = {}, now = Date.now()) {
   if (!ACTION_CATALOG[action_class]) {
     throw new Error('action_class must be one of A, B or C');
   }
   if (!ACTION_CATALOG[action_class].includes(action_id)) {
     throw new Error(`action_id "${String(action_id)}" is not offered by the demo issuer for class ${action_class}`);
+  }
+  if (issuer !== undefined && issuer !== null && issuer !== '' && !ISSUER_KEYS[issuer]) {
+    throw new Error(`unknown issuer "${String(issuer)}" — demo issuers: ${Object.keys(ISSUER_KEYS).join(', ')}`);
   }
   const w = Number(weight);
   if (!Number.isSafeInteger(w) || w < 1 || w > 10000) {
@@ -105,11 +127,33 @@ export function issuePassport({ action_class, action_id, weight, subject } = {},
     throw new Error('subject must match [A-Za-z0-9][A-Za-z0-9._:-]{0,63}');
   }
   const subj = subject === undefined || subject === null || subject === '' ? null : String(subject);
-  const proof = issueSignedProof(
-    { actionClass: action_class, actionId: action_id, weight: w, pioneerUid: DEMO_HOLDERS[subj] ?? 'pioneer-alice' },
+  const proof = issueSignedProof({
+    issuer: issuer || 'demo-app',
+    actionClass: action_class,
+    actionId: action_id,
+    weight: w,
+    pioneerUid: DEMO_HOLDERS[subj] ?? 'pioneer-alice'
+  }, now);
+  return createPassport({ proofs: [proof], subject: subj, createdAt: now });
+}
+
+const AGENT_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+
+export function issueAgentEvidence({ agent = 'alpha', task = 'data_labeling_47', weight = 10 } = {}, now = Date.now()) {
+  if (typeof agent !== 'string' || !AGENT_RE.test(agent)) {
+    throw new Error('agent must match [a-z0-9][a-z0-9_-]{0,31}');
+  }
+  if (typeof task !== 'string' || !AGENT_RE.test(task)) {
+    throw new Error('task must match [a-z0-9][a-z0-9_-]{0,31}');
+  }
+  return issuePassport(
+    { action_class: 'A', action_id: 'complete_task', weight, subject: `agent-${agent}`, issuer: 'demo-agent-service' },
     now
   );
-  return createPassport({ proofs: [proof], subject: subj, createdAt: now });
+}
+
+export function buildDispute({ doc, policy } = {}) {
+  return disputeReport({ doc, registry: PROOF_WORLD.registry, nonceStore: PROOF_NONCES, now: Date.now(), policy: policy ?? null });
 }
 
 export function verifySubmittedPassport(passport, policy) {
@@ -330,6 +374,68 @@ export function createAppServer() {
         const body = JSON.stringify(result);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/agent-evidence' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 16_384) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"request too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        try {
+          const passport = issueAgentEvidence(parsed);
+          const body = JSON.stringify({ passport });
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(body);
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/api/dispute' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 262_144) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"document too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        const report = buildDispute({ doc: parsed.doc ?? null, policy: parsed.policy ?? null });
+        const body = JSON.stringify(report);
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/verify' || url.pathname === '/verify.html') {
+        const html = await readFile(path.join(ROOT, 'verify.html'));
+        res.writeHead(200, { 'content-type': MIME['.html'] });
+        res.end(html);
         return;
       }
 

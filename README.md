@@ -363,6 +363,41 @@ nonce-store durability/distribution requirements, and audit status live in
 [docs/TRUST_BOUNDARIES.md](docs/TRUST_BOUNDARIES.md). This project is not
 externally audited; v1.0 remains blocked on external review.
 
+## 🕸️ AUREVIA Evidence Network (v0.9.0)
+
+> Proofs you can carry. Evidence anyone can verify.
+
+```
+                   ┌──────────────┐
+                   │    PEP/1     │
+                   │  Protocol    │
+                   └──────┬───────┘
+                   ┌──────▼───────┐
+                   │   PiProof    │
+                   │ Proof Engine │
+                   └──────┬───────┘
+        ┌─────────────────┼──────────────────┐
+        ▼                 ▼                  ▼
+  Proof Passport     Dispute Engine     Agent Evidence
+        │                 │                  │
+        └─────────────────┼──────────────────┘
+                          ▼
+                    AUREVIA Explorer
+```
+
+- **Public verification** — `/verify#p=<document>`: anyone opens the link;
+  no account, no trust in the holder; full checklist → `PROOF VERIFIED ✓`.
+- **Dispute Mode** — one adjudicable chain instead of screenshots:
+  *CLAIM → who issued it? → what was signed? → which policy? → which epoch?
+  → replayed? → key valid? → within policy? → FINAL VERDICT.*
+  Three outcomes only: **VALID / INVALID / UNVERIFIABLE** — and
+  UNVERIFIABLE (e.g. no trusted registry supplied) is never a pass.
+  CLI: `pep dispute --doc passport.json --registry registry.json`.
+- **Cross-application proofs** — multiple independent issuers share one
+  verifier epoch; a single passport can carry App-A and App-B evidence.
+- **Agent Evidence** — AI accountability: an agent's completed task is
+  signed by its service, policy-checked, and becomes a portable audit trail.
+
 ## 🛡️ AUREVIA — product identity
 
 > ### AUREVIA
