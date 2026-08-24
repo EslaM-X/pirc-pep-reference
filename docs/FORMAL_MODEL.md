@@ -147,7 +147,7 @@ strongly-consistent shared store (`RedisNonceStore`, DB unique constraint).
 
 Any independent implementation claiming PEP/1 conformance MUST:
 
-1. implement Canonical Profile v1.1 and reproduce all 15 interop vectors
+1. implement Canonical Profile v1.1 and reproduce all 16 interop vectors
    byte-for-byte ([CANONICALIZATION.md](CANONICALIZATION.md));
 2. enforce gates G1→G9 **in that order**, rejecting on first failure;
 3. make G9 the only state-mutating gate, atomic per `(app_id, nonce)`;

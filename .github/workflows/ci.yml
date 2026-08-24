@@ -62,3 +62,22 @@ jobs:
         run: python scripts/cross-canonical.py
       - name: differential fuzzing vs Node (seeded, quick mode)
         run: node scripts/fuzz.mjs --quick --only=cross-lang-diff,parser-differential
+
+  conformance-go:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+      - name: Go protocol core — conformance matrix (vectors + attacks)
+        run: go test ./...
+        working-directory: sdk/go
+      - name: go vet
+        run: go vet ./...
+        working-directory: sdk/go

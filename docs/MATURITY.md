@@ -38,8 +38,8 @@ Each row names the claim we REFUSE to make until the evidence column is real.
 | 10 | Cross-generation compatibility | old verifiers accepting new-generation documents or rejecting them cleanly | untested — no second generation exists |
 | 11 | External independent security audit | report from a firm with cryptographic protocol experience | 🔒 v1.0 gate; none performed |
 | 12 | Production deployment at meaningful scale | real applications relying on verdicts | none |
-| 13 | Independent third-party implementation | a language/stack outside Node+Python reproducing all interop vectors and passing the fuzz property suite, maintained by someone else | deliberately open ask (v0.15); two in-house implementations exist but share authors |
-| 14 | Mechanized verification | TLA+/Alloy model of the G1–G9 pipeline checked against INV-01…INV-12 | paper model only — docs/FORMAL_MODEL.md is explicit about this gap |
+| 13 | Independent third-party implementation | a language/stack outside Node+Python reproducing all interop vectors and passing the fuzz property suite, maintained by someone else | **partially held (v0.16)**: a third from-scratch Go implementation (`sdk/go`) passes the full conformance matrix — proving the spec is reimplementable; *author-independence* remains the open half |
+| 14 | Mechanized verification | TLA+/Alloy model of the G1–G9 pipeline checked against INV-01…INV-12 | **drafted (v0.16)**: `formal/piproof_gates.tla` models the stateful core with INV-04/INV-05 as TLC invariants; hand-checked, CI run pending tooling (formal/README.md) |
 
 ## Language rules for anyone presenting this project
 
