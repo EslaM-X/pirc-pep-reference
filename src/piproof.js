@@ -81,7 +81,15 @@ function envelopeError(proof) {
   return null;
 }
 
-export function verifyPiProof(proof, { registry, nonceStore, now = Date.now(), policy = null }) {
+import { timed } from './observability.js';
+
+export function verifyPiProof(proof, opts = {}) {
+  const { metrics = null } = opts;
+  if (!metrics) return _verifyPiProof(proof, opts);
+  return timed(metrics, 'proof_verify', () => _verifyPiProof(proof, opts));
+}
+
+function _verifyPiProof(proof, { registry, nonceStore, now = Date.now(), policy = null, metrics = null }) {
   const steps = [];
   const step = (id, pass, detail = '') => steps.push({ id, label: STEP_LABELS[id] ?? id, pass, detail });
 
@@ -101,7 +109,7 @@ export function verifyPiProof(proof, { registry, nonceStore, now = Date.now(), p
     step('REGISTRY_ROOT', true, actual);
   }
 
-  const verdict = verifySignedEvent(proof.event, { registry, nonceStore, now });
+  const verdict = verifySignedEvent(proof.event, { registry, nonceStore, now, metrics });
   for (const c of verdict.checks) step(c.check, c.pass);
 
   let policyResult = null;

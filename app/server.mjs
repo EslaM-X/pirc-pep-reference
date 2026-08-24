@@ -14,6 +14,7 @@ import { assembleSnapshot } from '../src/dashboard.js';
 import { toPiProof, verifyPiProof } from '../src/piproof.js';
 import { createPassport, verifyPassport } from '../src/passport.js';
 import { buildDisputeReport as disputeReport } from '../src/dispute.js';
+import { createMetricsRegistry, timed } from '../src/observability.js';
 
 /**
  * Pi Transparency App — local preview server.
@@ -53,6 +54,11 @@ const ISSUER_KEYS = Object.freeze({
 });
 
 const PROOF_NONCES = new InMemoryNonceStore();
+
+// Process-local observability (v0.12): opt-in counters + latency summaries,
+// exposed read-only at GET /api/metrics. Telemetry can never influence a
+// verdict — it only watches.
+const METRICS = createMetricsRegistry();
 
 // Short public verification links (/p/<id> → /verify#p=<document>).
 // Ephemeral by design: the mapping lives only in this process's memory and
@@ -171,7 +177,8 @@ export function verifySubmittedPassport(passport, policy) {
     registry: PROOF_WORLD.registry,
     nonceStore: PROOF_NONCES,
     now: Date.now(),
-    policyOverride: policy ?? null
+    policyOverride: policy ?? null,
+    metrics: METRICS
   });
 }
 
@@ -316,7 +323,8 @@ export function createAppServer() {
           registry: PROOF_WORLD.registry,
           nonceStore: PROOF_NONCES,
           now: Date.now(),
-          policy: parsed.policy ?? null
+          policy: parsed.policy ?? null,
+          metrics: METRICS
         });
         const body = JSON.stringify(result);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
@@ -436,7 +444,18 @@ export function createAppServer() {
           return;
         }
         const report = buildDispute({ doc: parsed.doc ?? null, policy: parsed.policy ?? null });
+        METRICS.record('dispute', {
+          ok: report.verdict === 'VALID',
+          code: report.verdict
+        });
         const body = JSON.stringify(report);
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/api/metrics') {
+        const body = JSON.stringify(METRICS.snapshot());
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
         return;
@@ -472,6 +491,7 @@ export function createAppServer() {
           SHARE_MAP.delete(SHARE_MAP.keys().next().value);
         }
         SHARE_MAP.set(id, doc);
+        METRICS.record('share', { ok: true });
         const body = JSON.stringify({ id });
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);

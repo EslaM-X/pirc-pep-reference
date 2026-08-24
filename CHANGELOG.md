@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-24
+
+### Added — observability hooks and the transparency-log design draft (v1.0 review centerpiece)
+
+- **`src/observability.js`** — opt-in metrics with strict rules: no global
+  state (registries are created and passed explicitly, verdicts can never
+  depend on whether observation is on), fail-open telemetry (recording
+  never throws into the verification path), bounded memory (latency ring
+  buffer capped at 10k samples). `timed()` helper wraps sync functions;
+  snapshots are stable-keyed JSON (`AUREVIA-Metrics/1`) with rejection-code
+  breakdowns and p50/p95/p99.
+- **Wired end-to-end**: `verifySignedEvent`, `verifyPiProof` and
+  `verifyPassport` accept an optional `metrics` registry; the demo server
+  records proof/passport verifications, disputes and shares, exposing a
+  read-only `GET /api/metrics`.
+- **`docs/TRANSPARENCY_LOG_DESIGN.md`** — the signed registry transparency-
+  log design draft that closes Open Question #1 *by design* (implementation
+  deliberately deferred to post-review): append-only epoch entries over the
+  existing canonical bytes, prev-hash chaining, m-of-n witness cosigning,
+  five-step pure verification procedure reusing zero new cryptography,
+  split-view detection, explicit migration path from today's
+  `registry_root` binding, reserved `TL_*` error codes, privacy analysis,
+  and five open questions for reviewers. Marked NON-NORMATIVE until the
+  external v1.0 review concludes.
+
+### Tests
+
+- `test/observability.test.js` — snapshot shape & key ordering, percentile
+  math, ring-buffer cap under 25k records, `timed()` outcome/THREW paths,
+  fail-open recording against hostile inputs.
+- App tests assert live `/api/metrics` counters after real verifications,
+  disputes and shares.
+
 ## [0.11.0] - 2026-08-24
 
 ### Added — distributed nonce state, production-scale benchmark, the honest open-questions register

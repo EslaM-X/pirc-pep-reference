@@ -219,6 +219,7 @@ piproof/
 │   ├── registry.js      app/key registry + eligibility registry
 │   ├── nonces.js        InMemory + file-backed nonce stores (atomic claimIfAbsent)
 │   ├── redis-nonces.js  ★ distributed nonce store — zero-dep RESP2 client (v0.11)
+│   ├── observability.js ★ opt-in metrics hooks — pure, no global state (v0.12)
 │   ├── verify.js        ★ the deterministic 9-step pipeline
 │   ├── escrow.js        SIGNING_AUTHORITY_REVOKED attestations (v0.3)
 │   ├── pfloor.js        dynamic price floor + invariant health (v0.3)
@@ -259,7 +260,8 @@ piproof/
 │   ├── registry.json                  vector world state
 │   └── attacks/*.json                 20 attack vectors + expected codes
 ├── docs/
-│   └── OPEN_QUESTIONS.md  ★ the honest register — ten hard questions, answered
+│   ├── OPEN_QUESTIONS.md            ★ the honest register — ten hard questions, answered
+│   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
 ├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
 ├── SPEC.md             normative specification
 ├── SECURITY.md         threat model & explicit limitations
@@ -302,6 +304,19 @@ const nonces = new RedisNonceStore({ url: process.env.REDIS_URL, ttlMs: 86_400_0
 
 ```bash
 npm run bench   # reproducible throughput: ~7.3k proofs/sec single-core sequential, p50 0.125ms
+```
+
+Observability (v0.12) — opt-in and pure:
+
+```js
+import { createMetricsRegistry } from './src/observability.js';
+const metrics = createMetricsRegistry();
+verifyPiProof(proof, { registry, nonceStore, now, metrics });
+metrics.snapshot(); // → { schema, kinds: { proof_verify: { total, ok, fail, rejection_codes, latency_ms } } }
+```
+
+```bash
+curl -s http://localhost:8787/api/metrics   # the demo server exposes its live counters read-only
 ```
 
 Library API:
@@ -512,8 +527,8 @@ themselves.
 | VII | `v0.9` | **Evidence Network**: public verification page, Dispute Engine (VALID/INVALID/UNVERIFIABLE), cross-application proofs, Agent Evidence | ✅ shipped |
 | VIII | `v0.10` | **Killer-demo perfection**: guided 60-second demo, issuer picker, short public links (`/p/<id>`), installable `piproof` CLI with positional args | ✅ shipped |
 | IX | `v0.11` | **Distributed nonce state** (`RedisNonceStore` — zero-dep RESP client, atomic `SET NX`, TTL GC), reproducible throughput benchmark (`npm run bench`), honest open-questions register | ✅ shipped |
-| X | `v0.12` | observability hooks, signed registry transparency-log design draft (the v1.0 review centerpiece) | 🔜 next |
-| XI | `v1.0` | frozen after external review & public feedback cycle | 🔒 gated on review |
+| X | `v0.12` | observability hooks (`/api/metrics`, opt-in pure metrics), **signed registry transparency-log design draft** (`docs/TRANSPARENCY_LOG_DESIGN.md` — the v1.0 review centerpiece) | ✅ shipped |
+| XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
 > feedback — not before.
