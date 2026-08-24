@@ -54,9 +54,20 @@ The `h1:` HMAC design is **pseudonymization**, not unlinkable anonymity:
 - `InMemoryNonceStore.claimIfAbsent` is indivisible within a process
   (synchronous test-and-set on one event-loop turn).
 - `FileNonceStore.claimIfAbsent` is atomic **across processes**: exclusive
-  O_EXCL lockfile (with stale-lock takeover) → fresh re-read of the log →
-  append → `fsyncSync` → unlock. A claim that returned true survives hard
-  restarts; a crash mid-append leaves at most one torn line that fails closed.
+  O_EXCL lockfile with **liveness-aware ownership** (v0.15) → fresh re-read of
+  the log → append → `fsyncSync` → unlock. A claim that returned true survives
+  hard restarts; a crash mid-append leaves at most one torn line that fails
+  closed. Lock takeover rules, precisely:
+  - a lock whose recorded owner PID is **alive on the same host** is never
+    stolen, regardless of age;
+  - a lock whose owner is provably dead (same host, no such PID) may be taken
+    once it is also older than the staleness window;
+  - locks from other hosts (or legacy/anonymous locks from v0.14-) fall back
+    to the time-based staleness window as the last resort.
+  Two verifier instances on one machine therefore cannot both win the same
+  claim; the residual risk window is limited to cross-host fleets sharing one
+  NFS volume with unsynchronized clocks — which this store explicitly does not
+  support.
 - Explicit non-goals: no network replication, no TTL/GC beyond `compact()`,
   no sharding. Horizontally scaled fleets still need a shared store (DB unique
   constraint / Redis SETNX); `FileNonceStore` narrows the gap from "demo" to
@@ -112,6 +123,46 @@ and belongs to the launchpad governance layer above it.
 ## Reporting
 
 Open a GitHub security advisory rather than a public issue.
+
+## Runtime parser divergence (V8 `JSON.parse`) — disclosed v0.15
+
+While building the differential fuzzing suite (`scripts/fuzz.mjs`), we found a
+**Node.js runtime defect**, not a PiProof protocol defect. It is documented
+here because any consumer parsing untrusted JSON with Node should know about
+it.
+
+### What happens
+
+After enough allocation churn (thousands of short-lived strings containing
+exotic characters), `JSON.parse` can return an object whose key set differs
+from the input text — e.g. a phantom key `"\""` (92) where the text says
+`"\" "` escaped differently. We verified this with **byte-identical input**
+(hexdump-compared): the same 146 bytes parse correctly in a fresh process and
+incorrectly in a churned one, nondeterministically across runs. The behavior
+depends on V8's internal allocation/hash-seed state, not on the input alone.
+Python's `json.loads` parses the same bytes correctly in every trial; only
+exact original key order in that document triggered it — every subset and
+permutation parsed fine, which is what made it so hard to isolate.
+
+### Impact on PiProof: none (unreachable)
+
+The divergence is only reachable if attacker-controlled JSON is parsed and its
+object keys are then *trusted semantically* without a fixed key set. Every
+PiProof document type (`event`, `registry`, `passport`, …) is validated against
+a closed schema that pins the exact allowed key set **before** any field is
+used; unknown fields are rejected outright. A phantom key cannot become a
+protocol field. The fuzz suite confirms: across all campaigns, no protocol
+violation was ever produced — every idempotence anomaly traced back to
+`JSON.parse` mis-reading bytes Python parsed correctly.
+
+### Advice for other consumers
+
+- If you parse untrusted JSON in Node and iterate object keys without schema
+  pinning, treat unexpected keys as fatal (fail closed) — as PiProof does.
+- Track upstream V8/Node for a fix; upgrade when available. The issue is not
+  yet filed upstream at time of writing; reproduction details live in
+  `scripts/fuzz.mjs` (parser-differential + canonical-property suites,
+  `FUZZ_DUMP=<dir>` dumps triggering cases).
 
 ## Verification instructions
 

@@ -83,7 +83,7 @@ It implements exactly what was discussed there, nothing more:
 | | Feature | Detail |
 |:---:|---|---|
 | 🔒 | **Ed25519 signatures** | RFC 8032 via Node stdlib `node:crypto` |
-| 🧊 | **Frozen canonical JSON** | PiProof Canonical Profile v1 (JCS-*inspired*, deliberately not JCS): non-negative safe integers, NFC strings, raw-key sort — [docs/CANONICALIZATION.md](docs/CANONICALIZATION.md) |
+| 🧊 | **Frozen canonical JSON** | PiProof Canonical Profile v1.1 (JCS-*inspired*, deliberately not JCS): non-negative safe integers, NFC strings, NFC-form sort (idempotent canonicalization) — [docs/CANONICALIZATION.md](docs/CANONICALIZATION.md) |
 | 🔁 | **Replay protection** | per-app nonce store with **atomic test-and-set** (`claimIfAbsent`); burned only on full pass; durable fsynced file store with cross-process locking; Redis store for multi-host fleets — [docs/NONCE_STORES.md](docs/NONCE_STORES.md) |
 | ⚖️ | **Bounded weights** | class ceilings enforced *even over valid signatures* |
 | 🪪 | **Registry-gated eligibility** | KYC/Mainnet flags checked server-side, never trusted from the payload |
@@ -101,6 +101,9 @@ It implements exactly what was discussed there, nothing more:
 | 🧑‍💻 | **Developer SDK** *(v0.14)* | `createVerifier().decide()` in JS + an independent pure-Python verifier + `POST /api/decide` — the "Verify with PiProof" button backend; [docs/SDK.md](docs/SDK.md) |
 | 🏷️ | **Named policy presets** *(v0.14)* | frozen versioned defaults (`merchant-verification-v1`, `agent-payment-v1`, …) callable by name from SDK/CLI/HTTP — [docs/SDK.md](docs/SDK.md) |
 | 🔗 | **Proof links** *(v0.14)* | self-contained `piproof://v1?p=…` URIs travel with the document; short `/p/<id>` links stay ephemeral |
+| 🎰 | **Fuzzing suite** *(v0.15)* | 6 seeded campaigns — canonicalization properties, schema fail-closed mutation, Unicode equivalence, Node↔Python differential parsing, K-process nonce races; found the Profile v1.1 idempotence bug pre-release (`npm run fuzz`) |
+| 🏛️ | **Layer governance** *(v0.15)* | mechanical L0…L4 import rules checked in CI — primitives can never reach upward ([docs/LAYERS.md](docs/LAYERS.md)) |
+| 📐 | **Formal model** *(v0.15)* | G1–G9 gate pipeline, 12 security invariants with enforced-by/verified-by traceability, crash-failure semantics ([docs/FORMAL_MODEL.md](docs/FORMAL_MODEL.md)) |
 | 📦 | **Zero dependencies** | runtime uses Node.js stdlib only — no supply-chain surface |
 
 ---
@@ -251,8 +254,14 @@ piproof/
 ├── scripts/
 │   ├── gen-vectors.mjs  regenerate all vectors byte-for-byte deterministically
 │   ├── check-vectors.mjs re-check committed vectors
+│   ├── gen-canonical-vectors.mjs ★ canonical interop vectors (Profile v1.1, v0.13+)
+│   ├── check-canonical-vectors.mjs ★ byte-exact two-language canonical check (v0.13+)
 │   ├── bench.mjs        ★ reproducible throughput benchmark (v0.11)
-│   └── cross-verify.py  🐍 independent pure-Python RFC 8032 verifier
+│   ├── cross-verify.py  🐍 independent pure-Python RFC 8032 verifier
+│   ├── cross-canonical.py 🐍 independent pure-Python canonicalizer (v0.13)
+│   ├── fuzz.mjs         ★ property+differential fuzzing suite — 6 campaigns (v0.15)
+│   ├── fuzz-diff-driver.py 🐍 CANC/PARSE driver for differential campaigns (v0.15)
+│   └── check-layers.mjs ★ layer-governance checker — L0…L4 import rules (v0.15)
 ├── test/
 │   ├── canonical.test.js      canonicalization properties
 │   ├── verify.test.js         pipeline incl. registry gating
@@ -265,7 +274,8 @@ piproof/
 │   ├── passport.test.js       Evidence Passport unit suite
 │   ├── passport-api.test.js   HTTP APIs incl. cross-issuer & agent evidence
 │   ├── dispute.test.js        dispute chain three-state honesty
-│   └── redis-nonces.test.js   distributed store vs RESP fixture (child proc)
+│   ├── redis-nonces.test.js   distributed store vs RESP fixture (child proc)
+│   └── lock-semantics.test.js liveness-aware FileNonceStore locking (v0.15)
 ├── vectors/
 │   ├── valid/signed-event.json        the one true positive vector
 │   ├── registry.json                  vector world state
@@ -274,9 +284,11 @@ piproof/
 │   ├── OPEN_QUESTIONS.md            ★ the honest register — ten hard questions, answered
 │   ├── MATURITY.md                  ★ what is proven vs not — evidence register (v0.13)
 │   ├── SDK.md                       ★ 5-minute developer guide — JS/Python/HTTP/presets (v0.14)
-│   ├── CANONICALIZATION.md          ★ normative: JCS vs PiProof profile + interop vectors
+│   ├── CANONICALIZATION.md          ★ normative: JCS vs PiProof profile v1.1 + interop vectors
 │   ├── NONCE_STORES.md              ★ normative: deployment matrix, File≠distributed
 │   ├── POLICY_MODEL.md              ★ v1 policy grammar + deliberate non-goals
+│   ├── LAYERS.md                    ★ normative since v0.15: L0…L4 import governance
+│   ├── FORMAL_MODEL.md              ★ engineering formal model — gates, 12 invariants, failure semantics (v0.15)
 │   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
 ├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
 ├── SPEC.md             normative specification
@@ -554,6 +566,7 @@ themselves.
 | X | `v0.12` | observability hooks (`/api/metrics`, opt-in pure metrics), **signed registry transparency-log design draft** (`docs/TRANSPARENCY_LOG_DESIGN.md` — the v1.0 review centerpiece) | ✅ shipped |
 | X½ | `v0.13` | **external-review hardening**: normative canonicalization profile + 15-vector two-language interop suite, binding classes (`EPOCH_BOUND`/`LOCAL`) with `require_epoch_bound` policy rule and honest passport aggregation, dispute-chain epoch-binding question, nonce-store deployment matrix, policy-grammar scope doc, pseudonymization-vs-anonymity statement, maturity evidence register | ✅ shipped |
 | XII | `v0.14` | **developer layer**: JS SDK (`createVerifier().decide()`), independent pure-Python SDK, named frozen policy presets callable by name, one-call Decision API (`POST /api/decide`) sharing replay state, preset-aware verify endpoints, self-contained `piproof://v1?p=…` proof links | ✅ shipped |
+| XV | `v0.15` | **adversarial depth & formal structure**: property+differential fuzzing suite (found & fixed a real canonicalization idempotence bug — Profile v1.1 NFC-form sort), layer-governance checker (`scripts/check-layers.mjs`), liveness-aware nonce-lock ownership (live-PID locks never stolen), engineering formal model with 12 invariants (`docs/FORMAL_MODEL.md`), disclosed V8 `JSON.parse` divergence finding ([SECURITY.md](SECURITY.md)) | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community

@@ -20,7 +20,7 @@ eventual propagation) converts a replay attack from "impossible" to
 | Store | Single process | Multi-process, one host | Multi-host / K8s replicas | Multi-region |
 |---|---|---|---|---|
 | `InMemoryNonceStore` | ✅ | ❌ | ❌ | ❌ |
-| `FileNonceStore` | ✅ | ✅ (real cross-process locks + crash durability) | ❌ **not distributed replay protection** | ❌ |
+| `FileNonceStore` | ✅ | ✅ (real cross-process locks with liveness-aware ownership, v0.15, + crash durability) | ❌ **not distributed replay protection** | ❌ |
 | `RedisNonceStore` | ✅ | ✅ | ✅ **iff** all replicas point at ONE strongly consistent Redis authority | ⚠️ only with one logical authority; see below |
 
 ## The honest statement about FileNonceStore
@@ -40,6 +40,21 @@ guarantee changes completely and silently — a second replica with its own
 volume will happily accept what the first already claimed. This is why the
 store matrix above is normative: **never present a FileNonceStore deployment
 as multi-host safe.**
+
+### Lock ownership semantics (v0.15)
+
+Within the supported single-host topology, lock takeover is liveness-aware:
+
+- a lock whose recorded owner PID is **alive on this host** is never stolen,
+  no matter how old it is — a slow verifier can no longer be double-entered by
+  a peer that merely waited out a timeout;
+- a provably dead same-host owner (no such PID) may be taken over once the
+  staleness window has also passed;
+- foreign-host, anonymous, or legacy (v0.14-) lock files fall back to the pure
+  time-based window as last resort.
+
+Guarantees are per-host by construction; nothing here relaxes the multi-host
+`❌` in the matrix above. Semantics: `test/lock-semantics.test.js`.
 
 ## RedisNonceStore requirements
 

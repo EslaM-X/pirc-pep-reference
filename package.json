@@ -1,6 +1,6 @@
 ﻿{
   "name": "piproof",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA â€” a Pi SDK-integrated cryptographic transparency dashboard.",
   "type": "module",
   "author": {
@@ -33,7 +33,10 @@
     "gen:vectors": "node scripts/gen-vectors.mjs && node scripts/check-vectors.mjs",
     "gen:canonical": "node scripts/gen-canonical-vectors.mjs && node scripts/check-canonical-vectors.mjs",
     "cross:python": "python scripts/cross-verify.py && python scripts/cross-canonical.py",
-    "ci": "npm test && npm run attacks && npm run transparency && npm run gen:vectors && npm run gen:canonical"
+    "layers": "node scripts/check-layers.mjs",
+    "fuzz": "node scripts/fuzz.mjs",
+    "fuzz:quick": "node scripts/fuzz.mjs --quick",
+    "ci": "npm run layers && npm test && npm run attacks && npm run transparency && npm run gen:vectors && npm run gen:canonical && npm run fuzz:quick"
   },
   "keywords": [
     "aurevia",

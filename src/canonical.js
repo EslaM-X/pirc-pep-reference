@@ -37,8 +37,19 @@ export function canonicalize(value, depth = 0) {
       }
       seen.add(norm);
     }
-    const keys = Object.keys(value).sort();
-    return '{' + keys.map((k) => JSON.stringify(k.normalize('NFC')) + ':' + canonicalize(value[k], depth + 1)).join(',') + '}';
+    // Profile v1.1: sort the NFC FORMS, not the raw keys. Sorting raw keys
+    // while serializing their NFC forms made canonicalization deterministic
+    // per value but NOT a fixed point: canon(parse(canon(x))) could reorder
+    // keys whenever normalization changed a key's sort position, silently
+    // breaking isCanonical() on documents the protocol itself produced.
+    // With NFC-form sorting, the emitted key text IS the sort key, so the
+    // canonical form is idempotent under parse -> canonicalize. (Found by
+    // scripts/fuzz.mjs cross-checking the property suite; see CHANGELOG
+    // v0.15.0.)
+    const entries = Object.keys(value)
+      .map((raw) => [raw, raw.normalize('NFC')])
+      .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+    return '{' + entries.map(([raw, norm]) => JSON.stringify(norm) + ':' + canonicalize(value[raw], depth + 1)).join(',') + '}';
   }
   throw new CanonicalError(`unsupported type: ${t}`);
 }
