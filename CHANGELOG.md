@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-24
+
+### Added — third implementation & normative conformance
+
+MATURITY.md rows #13/#14 move from "open ask" to "partially held / drafted":
+the protocol core now exists as **three independent codebases** (Node,
+Python, Go) agreeing byte-for-byte, and the stateful heart of the formal
+model is machine-checkable with one command.
+
+- **Go protocol core (`sdk/go/`, from scratch)**: Canonical Profile v1.1,
+  closed event schema, G1–G9 verification pipeline with exact error-code
+  parity, registry/eligibility model, RFC 8032 via stdlib `crypto/ed25519`,
+  and a CANC/PARSE fuzz driver speaking the same line protocol as Python's.
+  One pinned auxiliary dependency (`golang.org/x/text`) because Go's stdlib
+  ships no Unicode normalization tables — it plays the role `unicodedata`
+  plays in Python. Ordered JSON parsing preserves key order (Go maps would
+  randomize it). Tests: 16 interop vectors byte-exact, fixed-point INV-01
+  pin, the valid vector ACCEPTS, all 20 attack vectors reject with exact
+  codes, INV-05 burn-on-pass pin, INV-08 snapshot pin.
+- **Normative conformance suite** — `scripts/conformance.mjs`
+  (`npm run conformance`) + [docs/CONFORMANCE.md](docs/CONFORMANCE.md):
+  a four-row matrix (Node vectors / Python canonicalizer / Go protocol
+  core / Python Ed25519) that anyone claiming "PiProof compatible" MUST run
+  and publish verbatim, with claim-language rules ("passes at commit `<sha>`"
+  — never "certified"/"endorsed"). Graceful SKIP for absent toolchains;
+  `--strict` turns skips into failures.
+- **Fuzzing suite extended to seven campaigns**: new `go-diff` differential
+  campaign cross-examines Node vs Go through the driver protocol (canonical
+  bytes AND parse shapes); the Go driver binary is built once per run and
+  cleaned up; suite SKIPPED cleanly when no Go toolchain is present.
+- **TLA+ model of the stateful gate core** (`formal/piproof_gates.tla` +
+  `.cfg` + README): two verifiers racing one shared nonce authority; G8
+  snapshot eligibility and the atomic G9 test-and-set modeled explicitly;
+  INV-04 (at-most-one-accept), INV-05 (burn-on-pass-only) plus TypeOK and
+  AcceptImpliesBurn as TLC invariants. Hand-checked pending a CI tooling
+  run — honest about that in formal/README.md.
+
+### Corrected — Unicode facts behind the Profile v1.1 story
+
+v0.15 claimed interop vector `canon-012` pins the amended NFC-form sort
+order. That was wrong on Unicode details: ligatures have *no canonical
+decomposition*, so `NFC(U+FB03)` stays `U+FB03` and canon-012's emission
+order is identical under both the v1.0 raw-sort and the v1.1 NFC-sort rules.
+The genuine discriminator is **new vector `canon-016`** (Ç U+00C7 vs Å-sign
+U+212B): raw order puts Ç first, NFC forms put Å first — v1.1 emits
+`{"Å":2,"Ç":1}` and a raw-sort implementation fails. Changes:
+
+- `canon-012` renamed/described accurately (ligature NFC-invariance);
+- `canon-016` added → **suite is now 16 vectors**, all regenerated and
+  byte-exact across Node, Python, Go;
+- `scripts/cross-canonical.py` updated from raw-sort to NFC-form sort —
+  it silently disagreed with v1.1 on flip-class pairs while still passing
+  the old vector set;
+- `docs/CANONICALIZATION.md` amendment section rewritten with correct
+  Unicode facts and both pinning vectors explained.
+
+### Verification
+
+132/132 tests · layer check clean · 20/20 attacks · 16/16 canonical vectors
+×3 languages · FUZZ OK incl. go-diff · conformance matrix 4/4 · `go vet`
+clean.
+
 ## [0.15.0] - 2026-08-24
 
 ### Added — adversarial depth & formal structure
@@ -67,8 +129,12 @@ that make claims checkable. It paid for itself immediately (see Changed).
   NFC-form sorting the emitted text IS the sort key, so idempotence holds by
   construction. Wire compatibility: schema-valid envelopes never contained
   NFC-unstable key pairs (the collision rule rejects them), so no previously
-  signed payload changes meaning. Interop vector `canon-012` pins the amended
-  order; all 15 vectors regenerated and byte-exact across languages.
+  signed payload changes meaning. All vectors regenerated and byte-exact
+  across languages. *(Correction, v0.16: v0.15 claimed vector `canon-012`
+  pins the amended order — wrong on Unicode facts: ligatures have no
+  canonical decomposition, so `canon-012`'s order is identical under both
+  rules. The true discriminator is new vector `canon-016` {Ç, Å-sign}; see
+  docs/CANONICALIZATION.md §Interop vectors.)*
 - `docs/CANONICALIZATION.md` retitled to Profile v1.1 with the amendment's
   rationale, a new fixed-point conformance requirement, and the honest story
   of how the bug was found.

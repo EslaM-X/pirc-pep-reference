@@ -5,9 +5,10 @@
  * These vectors pin down the EXACT behavior of the protocol-specific
  * canonicalization used by PEP/1 (see docs/CANONICALIZATION.md). They are
  * deliberately NOT RFC 8785 JCS vectors: this profile restricts numbers to
- * non-negative safe integers, NFC-normalizes strings, sorts on RAW keys and
- * rejects NFC key collisions. Any independent implementation that reproduces
- * every vector byte-for-byte is interoperable with this codebase.
+ * non-negative safe integers, NFC-normalizes strings, sorts on the NFC FORMS
+ * of keys (Profile v1.1) and rejects NFC key collisions. Any independent
+ * implementation that reproduces every vector byte-for-byte is interoperable
+ * with this codebase.
  *
  * Regenerate with: npm run gen:canonical
  */
@@ -76,8 +77,8 @@ const CASES = [
     input: '{"b":2,"a":1,"c":3}'
   },
   {
-    id: 'canon-012-raw-sort-divergence',
-    description: 'sorting happens on RAW keys (UTF-16 units), not NFC-normalized keys: ANGSTROM SIGN U+212B sorts before FF LIGATURE U+FB03 raw, but their NFC forms (U+00C5 vs "ffi") would sort the opposite way',
+    id: 'canon-012-ligature-nfc-invariance',
+    description: 'NFC leaves the FF ligature U+FB03 intact (ligatures have no canonical decomposition, only compatibility): ANGSTROM SIGN U+212B normalizes to U+00C5 and both sort orders coincide, so raw-sort and NFC-form-sort agree here',
     input: '{"\\u212b":1,"\\ufb03":2}'
   },
   {
@@ -94,6 +95,11 @@ const CASES = [
     id: 'canon-015-empty-containers',
     description: 'empty array and object serialize compactly',
     input: '{"a":[],"o":{}}'
+  },
+  {
+    id: 'canon-016-nfc-sort-flip',
+    description: 'Profile v1.1 discriminator: C-CEDILLA U+00C7 sorts before ANGSTROM SIGN U+212B raw, but NFC(U+212B)=U+00C5 sorts before NFC(U+00C7)=U+00C7 — so the emitted order flips versus raw-key sorting, and canon(parse(canon(x))) stays a fixed point',
+    input: '{"\\u00c7":1,"\\u212b":2}'
   }
 ];
 

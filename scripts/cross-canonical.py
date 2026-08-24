@@ -86,8 +86,11 @@ def canonicalize(value, depth=0):
             if norm in seen:
                 raise CanonicalProfileError(f"normalized key collision under NFC: {json.dumps(raw)}")
             seen.add(norm)
+        # Profile v1.1 (since piproof v0.15): sort the NFC FORMS, not the raw
+        # keys — canon(parse(canon(x))) must be a fixed point. Mirrors
+        # sdk/python/piproof_sdk.py and src/canonical.js.
         parts = []
-        for raw in sorted(value.keys(), key=_utf16_key):
+        for raw in sorted(value.keys(), key=lambda k: _utf16_key(unicodedata.normalize('NFC', k))):
             parts.append(_js_string(unicodedata.normalize('NFC', raw)) + ':' + canonicalize(value[raw], depth + 1))
         return '{' + ','.join(parts) + '}'
     raise CanonicalProfileError(f"unsupported type: {type(value).__name__}")

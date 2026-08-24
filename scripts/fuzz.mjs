@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// PiProof adversarial fuzzing suite (v0.15) — zero dependencies.
+// PiProof adversarial fuzzing suite (v0.15, extended v0.16) — zero dependencies.
 //
-// Five property-based campaigns against the hand-rolled core:
+// Seven property-based campaigns against the hand-rolled core:
 //
 //   1. canonical-property   every generated value is either canonicalized
 //                           deterministically or rejected with CanonicalError;
@@ -15,12 +15,18 @@
 //   4. cross-lang-diff      Node and the independent Python implementation
 //                           produce BYTE-IDENTICAL outcomes on random inputs
 //                           (differential fuzzing across implementations).
-//   5. concurrency          K fresh OS processes racing to claim ONE durable
+//   5. parser-differential  Node's JSON.parse vs Python's json.loads shape
+//                           agreement on identical bytes (found the V8
+//                           phantom-key divergence — see SECURITY.md).
+//   6. go-diff              Node vs the Go implementation (sdk/go): byte and
+//                           shape agreement through the same driver protocol.
+//   7. concurrency          K fresh OS processes racing to claim ONE durable
 //                           nonce yield exactly one winner, every round.
 //
 // Deterministic: seeded PRNG, seed printed for reproduction (--seed N).
 // Usage: node scripts/fuzz.mjs [--quick] [--seed N] [--only=name,name]
-// Exit code is nonzero on ANY violation.
+// Exit code is nonzero on ANY protocol violation; runtime-parser divergences
+// are reported loudly but only fatal under FUZZ_STRICT=1.
 
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -151,7 +157,7 @@ function suite(name, fn) {
 // --------------------------------------------------- 1. canonical-property --
 suite('canonical-property', async () => {
   const exe = await pythonAvailable();
-  const driver = exe ? makeDriver(exe) : null;
+  const driver = exe ? makeDriver(exe, ['scripts/fuzz-diff-driver.py'], { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }) : null;
   const N = QUICK ? 4000 : 30000;
   for (let i = 0; i < N; i++) {
     const v = genValue();
@@ -305,11 +311,32 @@ async function pythonAvailable() {
   return null;
 }
 
-// One long-lived Python driver process; commands are NDJSON lines.
-function makeDriver(exe) {
-  const child = spawn(exe, [path.join(ROOT, 'scripts', 'fuzz-diff-driver.py')], {
+async function goAvailable() {
+  try {
+    execFileSync('go', ['version'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Builds the Go fuzz driver once per run; returns binary path or null.
+function buildGoDriver() {
+  const bin = path.join(os.tmpdir(), 'piproof-go-fuzzdriver-' + process.pid + (process.platform === 'win32' ? '.exe' : ''));
+  try {
+    execFileSync('go', ['build', '-o', bin, './cmd/fuzzdriver'], { cwd: path.join(ROOT, 'sdk', 'go'), stdio: 'pipe' });
+    return bin;
+  } catch (err) {
+    console.log('fuzz/go-diff: go build failed — ' + String(err.stderr || err.message).slice(0, 200));
+    return null;
+  }
+}
+
+// One long-lived driver process; commands are NDJSON lines.
+function makeDriver(exe, cmdArgs, envExtra = {}) {
+  const child = spawn(exe, cmdArgs, {
     cwd: ROOT,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
+    env: { ...process.env, ...envExtra },
     stdio: ['pipe', 'pipe', 'pipe']
   });
   const pending = [];
@@ -354,7 +381,7 @@ runSuite('cross-lang-diff', async () => {
     console.log('fuzz/cross-lang-diff: SKIPPED (python not found)');
     return;
   }
-  const driver = makeDriver(exe);
+  const driver = makeDriver(exe, ['scripts/fuzz-diff-driver.py'], { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' });
   const N = QUICK ? 600 : 3000;
   const inputs = [];
   for (let i = 0; i < N; i++) {
@@ -404,7 +431,7 @@ runSuite('parser-differential', async () => {
     console.log('fuzz/parser-differential: SKIPPED (python not found)');
     return;
   }
-  const driver = makeDriver(exe);
+  const driver = makeDriver(exe, ['scripts/fuzz-diff-driver.py'], { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' });
   const N = QUICK ? 400 : 2000;
   for (let i = 0; i < N; i++) {
     // Round-trip through text so both parsers see identical bytes.
@@ -429,6 +456,70 @@ runSuite('parser-differential', async () => {
     }
   }
   driver.close();
+});
+
+// ------------------------------------------------------- 4c. go-diff --------
+// The third-language implementation (sdk/go) must agree with Node byte-for-
+// byte on canonicalization AND structurally on parse shapes — this is the
+// "reimplementable from the spec alone" proof, continuously enforced.
+suite('go-diff', async () => {
+  if (!(await goAvailable())) {
+    console.log('fuzz/go-diff: SKIPPED (go toolchain not found)');
+    return;
+  }
+  const bin = buildGoDriver();
+  if (!bin) return;
+  const driver = makeDriver(bin, []);
+  const N = QUICK ? 600 : 3000;
+  const inputs = [];
+  for (let i = 0; i < N; i++) {
+    const v = genValue();
+    if (i % 17 === 0) {
+      const [k1, k2] = collidingKeyPair();
+      inputs.push({ [k1]: 1, [k2]: 2 }); // both sides must reject identically
+    } else {
+      inputs.push(v);
+    }
+  }
+
+  for (let i = 0; i < inputs.length; i++) {
+    const line = await driver.cmd('CANC\t' + JSON.stringify(inputs[i]));
+    const [goStatus, goPayload] = line.split('\t');
+    let jsStatus, jsPayload;
+    try {
+      jsStatus = 'OK';
+      jsPayload = canonicalize(inputs[i]).replace(/\n/g, '\\n');
+    } catch (err) {
+      jsStatus = err instanceof CanonicalError ? 'ERR' : 'UNEXPECTED';
+      jsPayload = err instanceof CanonicalError ? 'CanonicalError' : 'Unexpected:' + err.constructor.name;
+    }
+    if (goStatus !== jsStatus) {
+      violation('go-diff', `status divergence on case ${i}: go=${goStatus} js=${jsStatus}`, repr(inputs[i]).slice(0, 200));
+      continue;
+    }
+    if (goStatus === 'OK' && goPayload !== jsPayload) {
+      violation('go-diff', `BYTE divergence on case ${i}`, `go=${goPayload.slice(0, 120)} js=${jsPayload.slice(0, 120)}`);
+    }
+  }
+
+  // Structural agreement on parse shapes too.
+  for (let i = 0; i < N; i++) {
+    const text = JSON.stringify(genValue());
+    const line = await driver.cmd('PARSE\t' + text);
+    if (!line.startsWith('SHAPE\t')) continue;
+    const goShape = line.slice(6);
+    let jsShape;
+    try {
+      jsShape = nodeShape(JSON.parse(text));
+    } catch {
+      continue;
+    }
+    if (jsShape !== goShape) {
+      violation('go-diff', `parse-shape divergence on case ${i}: node and go disagree on key structure`);
+    }
+  }
+  driver.close();
+  try { fs.unlinkSync(bin); } catch { /* best effort */ }
 });
 
 // ---------------------------------------------------------- 5. concurrency --

@@ -91,7 +91,10 @@ It implements exactly what was discussed there, nothing more:
 | 🎲 | **Deterministic key material** | optional seed → RFC 8032-fixed Ed25519 keys; committed vectors are **byte-for-byte reproducible** (CI-diffed) |
 | 🔑 | **Key rotation & revocation** | `key_id` indirection, instant revocation path |
 | 🧪 | **Adversarial suite** | 20 attacks, each rejected with its exact error code |
-| 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier; the canonicalization profile has its own 15-vector interop suite agreed by two independent implementations |
+| 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier; the canonicalization profile has its own 16-vector interop suite agreed across Node, Python, and Go implementations |
+| ✅ | **Conformance suite** *(v0.16)* | one command (`npm run conformance`) runs the normative compatibility matrix across all implementations — [docs/CONFORMANCE.md](docs/CONFORMANCE.md) |
+| 🧠 | **Go protocol core** *(v0.16)* | from-scratch third implementation: canonicalization v1.1, closed schema, G1–G9 pipeline, RFC 8032 via `crypto/ed25519` — proof the spec alone is enough to reimplement |
+| 📐 | **TLA+ model** *(v0.16)* | machine-checkable fragment of the formal model: racing verifiers, atomic nonce claim, INV-04/INV-05 as TLC invariants ([formal/](formal/)) |
 | 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment; honest binding aggregation (`EPOCH_BOUND` / `LOCAL` / `MIXED`) |
 | 📌 | **Binding classes** *(v0.13)* | every proof is explicitly `EPOCH_BOUND` (pinned to one registry generation) or `LOCAL` (verifies against whatever trusted copy the verifier supplies); policies can require epoch pinning via `require_epoch_bound` |
 | ⚖️ | **Dispute Engine** | **deterministic evidence adjudication layer** — claim→verdict chain, three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass. Not a decentralized arbitration protocol, and never described as one |
@@ -233,8 +236,7 @@ piproof/
 │   ├── redis-nonces.js  ★ distributed nonce store — zero-dep RESP2 client (v0.11)
 │   ├── observability.js ★ opt-in metrics hooks — pure, no global state (v0.12)
 │   ├── policy-presets.js ★ frozen named policies — merchant/agent/community v1 (v0.14)
-│   ├── sdk.js           ★ developer SDK — createVerifier().decide() + proof URIs (v0.14)
-│   ├── verify.js        ★ the deterministic 9-step pipeline
+│   ├── sdk.js           ★ developer SDK — createVerifier().decide() + proof URIs (v0.14)│   ├── verify.js        ★ the deterministic 9-step pipeline
 │   ├── escrow.js        SIGNING_AUTHORITY_REVOKED attestations (v0.3)
 │   ├── pfloor.js        dynamic price floor + invariant health (v0.3)
 │   ├── engagement.js    PoA/PoU scoring + consistency factor (v0.3)
@@ -255,12 +257,13 @@ piproof/
 │   ├── gen-vectors.mjs  regenerate all vectors byte-for-byte deterministically
 │   ├── check-vectors.mjs re-check committed vectors
 │   ├── gen-canonical-vectors.mjs ★ canonical interop vectors (Profile v1.1, v0.13+)
-│   ├── check-canonical-vectors.mjs ★ byte-exact two-language canonical check (v0.13+)
+│   ├── check-canonical-vectors.mjs ★ byte-exact multi-language canonical check (v0.13+)
 │   ├── bench.mjs        ★ reproducible throughput benchmark (v0.11)
 │   ├── cross-verify.py  🐍 independent pure-Python RFC 8032 verifier
 │   ├── cross-canonical.py 🐍 independent pure-Python canonicalizer (v0.13)
-│   ├── fuzz.mjs         ★ property+differential fuzzing suite — 6 campaigns (v0.15)
+│   ├── fuzz.mjs         ★ property+differential fuzzing suite — 7 campaigns (v0.15+go v0.16)
 │   ├── fuzz-diff-driver.py 🐍 CANC/PARSE driver for differential campaigns (v0.15)
+│   ├── conformance.mjs  ★ normative compatibility matrix across implementations (v0.16)
 │   └── check-layers.mjs ★ layer-governance checker — L0…L4 import rules (v0.15)
 ├── test/
 │   ├── canonical.test.js      canonicalization properties
@@ -276,9 +279,17 @@ piproof/
 │   ├── dispute.test.js        dispute chain three-state honesty
 │   ├── redis-nonces.test.js   distributed store vs RESP fixture (child proc)
 │   └── lock-semantics.test.js liveness-aware FileNonceStore locking (v0.15)
+├── sdk/
+│   ├── python/piproof_sdk.py 🐍 independent pure-Python protocol core + policy subset
+│   └── go/              ★ from-scratch Go protocol core — canonical v1.1, schema,
+│                          G1–G9 pipeline, crypto/ed25519, fuzz driver (v0.16)
+├── formal/
+│   ├── piproof_gates.tla ★ TLA+ model — racing verifiers, INV-04/05 as TLC invariants (v0.16)
+│   └── README.md         how to run it + modeling decisions + roadmap
 ├── vectors/
 │   ├── valid/signed-event.json        the one true positive vector
 │   ├── registry.json                  vector world state
+│   ├── canonical/index.json           16 canonical interop vectors (v1.1)
 │   └── attacks/*.json                 20 attack vectors + expected codes
 ├── docs/
 │   ├── OPEN_QUESTIONS.md            ★ the honest register — ten hard questions, answered
@@ -289,6 +300,7 @@ piproof/
 │   ├── POLICY_MODEL.md              ★ v1 policy grammar + deliberate non-goals
 │   ├── LAYERS.md                    ★ normative since v0.15: L0…L4 import governance
 │   ├── FORMAL_MODEL.md              ★ engineering formal model — gates, 12 invariants, failure semantics (v0.15)
+│   ├── CONFORMANCE.md               ★ normative since v0.16: how to claim "PiProof compatible"
 │   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
 ├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
 ├── SPEC.md             normative specification
@@ -567,6 +579,7 @@ themselves.
 | X½ | `v0.13` | **external-review hardening**: normative canonicalization profile + 15-vector two-language interop suite, binding classes (`EPOCH_BOUND`/`LOCAL`) with `require_epoch_bound` policy rule and honest passport aggregation, dispute-chain epoch-binding question, nonce-store deployment matrix, policy-grammar scope doc, pseudonymization-vs-anonymity statement, maturity evidence register | ✅ shipped |
 | XII | `v0.14` | **developer layer**: JS SDK (`createVerifier().decide()`), independent pure-Python SDK, named frozen policy presets callable by name, one-call Decision API (`POST /api/decide`) sharing replay state, preset-aware verify endpoints, self-contained `piproof://v1?p=…` proof links | ✅ shipped |
 | XV | `v0.15` | **adversarial depth & formal structure**: property+differential fuzzing suite (found & fixed a real canonicalization idempotence bug — Profile v1.1 NFC-form sort), layer-governance checker (`scripts/check-layers.mjs`), liveness-aware nonce-lock ownership (live-PID locks never stolen), engineering formal model with 12 invariants (`docs/FORMAL_MODEL.md`), disclosed V8 `JSON.parse` divergence finding ([SECURITY.md](SECURITY.md)) | ✅ shipped |
+| XVI | `v0.16` | **third implementation & conformance**: from-scratch Go protocol core (`sdk/go`) passing the full conformance matrix (16 canonical vectors + valid event + 20 attacks with exact codes), normative conformance suite (`npm run conformance`, [docs/CONFORMANCE.md](docs/CONFORMANCE.md)), TLA+ model of the stateful gate core with INV-04/INV-05 as TLC invariants (`formal/`), Unicode-facts corrections to the v1.1 vector story + new discriminator vector `canon-016` | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community

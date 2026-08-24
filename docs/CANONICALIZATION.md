@@ -68,19 +68,27 @@ Design choice frozen in v1.1:
   signed payload changes meaning. Only synthetic documents mixing
   pre-composed and decomposed forms of *different* keys could reorder.
 
-Interop vector `canon-012` pins the amended behavior byte-for-byte: input
-keys `U+212B` (ANGSTROM SIGN → NFC `U+00C5 "Å"`) and `U+FB03` (FF LIGATURE →
-NFC `"ffi"`). v1.0 emitted Å-sign first (raw order `212B < FB03`);
-**v1.1 emits `U+FB03` first** (NFC-form order `"Å"(00C5) > "ffi"(0066…)`).
-Both orders are defensible designs; v1.1 is the one with the fixed-point
-property, and the vector makes silent disagreement impossible.
+Two vectors pin the sort rule from both sides:
+
+- **`canon-012` (orders coincide):** keys `U+212B` (ANGSTROM SIGN → NFC
+  `U+00C5`) and `U+FB03` (FF LIGATURE). A subtle Unicode fact matters here:
+  ligatures have *no canonical decomposition* — `NFC(U+FB03)` stays `U+FB03`
+  (only compatibility normalization NFKC maps it to `"ffi"`). Both orders
+  therefore agree: raw `212B < FB03` and NFC-form `00C5 < FB03` both emit
+  Å-sign first. The vector documents this invariance so implementers do not
+  "helpfully" apply compatibility normalization and break byte-exactness.
+- **`canon-016` (the true v1.1 discriminator):** keys `U+00C7` (Ç) and
+  `U+212B`. Raw order puts Ç first (`00C7 < 212B`); NFC forms put Å first
+  (`00C5 < 00C7`). v1.1 emits `{"Å":2,"Ç":1}` — a raw-sort implementation
+  emits the opposite and fails this vector. This is the pair class that made
+  v1.0 non-idempotent.
 
 ## Interop vectors
 
-`vectors/canonical/index.json` contains 15 vectors covering integer bounds,
+`vectors/canonical/index.json` contains 16 vectors covering integer bounds,
 rejections (negative/float/exponent/unsafe), NFC equivalence, astral
-characters, minimal escaping, key ordering, the divergence case above, NFC
-collisions, nesting and empty containers.
+characters, minimal escaping, key ordering (both coincidence and flip cases
+above), NFC collisions, nesting and empty containers.
 
 Each vector provides the **raw JSON text** as input; an implementation must
 parse it, canonicalize it, and either reproduce `expected.canonical`
@@ -93,7 +101,7 @@ Two independent implementations already agree on all vectors:
   Python 3.10/3.12 on Linux and Windows.
 
 Adding a third-language implementation is deliberately boring: implement the
-table above, run the vectors, match all 15.
+table above, run the vectors, match all 16.
 
 ## Implementation requirements (normative)
 
