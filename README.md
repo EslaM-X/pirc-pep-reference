@@ -98,6 +98,9 @@ It implements exactly what was discussed there, nothing more:
 | 🧾 | **Trust Policy checklist** *(v1 scope)* | flat narrowing-only rules after crypto verification (`issuer_allowlist`, classes, weights, freshness, KYC/Mainnet, epoch-binding) — good v1, not a policy language; [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md) |
 | 🔀 | **Cross-application proofs** | independent issuers share one verifier epoch; multi-issuer passports verify against a single trusted state |
 | 🤖 | **Agent Evidence** | AI accountability: signed agent actions become portable, independently verifiable audit trails |
+| 🧑‍💻 | **Developer SDK** *(v0.14)* | `createVerifier().decide()` in JS + an independent pure-Python verifier + `POST /api/decide` — the "Verify with PiProof" button backend; [docs/SDK.md](docs/SDK.md) |
+| 🏷️ | **Named policy presets** *(v0.14)* | frozen versioned defaults (`merchant-verification-v1`, `agent-payment-v1`, …) callable by name from SDK/CLI/HTTP — [docs/SDK.md](docs/SDK.md) |
+| 🔗 | **Proof links** *(v0.14)* | self-contained `piproof://v1?p=…` URIs travel with the document; short `/p/<id>` links stay ephemeral |
 | 📦 | **Zero dependencies** | runtime uses Node.js stdlib only — no supply-chain surface |
 
 ---
@@ -226,6 +229,8 @@ piproof/
 │   ├── nonces.js        InMemory + file-backed nonce stores (atomic claimIfAbsent)
 │   ├── redis-nonces.js  ★ distributed nonce store — zero-dep RESP2 client (v0.11)
 │   ├── observability.js ★ opt-in metrics hooks — pure, no global state (v0.12)
+│   ├── policy-presets.js ★ frozen named policies — merchant/agent/community v1 (v0.14)
+│   ├── sdk.js           ★ developer SDK — createVerifier().decide() + proof URIs (v0.14)
 │   ├── verify.js        ★ the deterministic 9-step pipeline
 │   ├── escrow.js        SIGNING_AUTHORITY_REVOKED attestations (v0.3)
 │   ├── pfloor.js        dynamic price floor + invariant health (v0.3)
@@ -268,6 +273,7 @@ piproof/
 ├── docs/
 │   ├── OPEN_QUESTIONS.md            ★ the honest register — ten hard questions, answered
 │   ├── MATURITY.md                  ★ what is proven vs not — evidence register (v0.13)
+│   ├── SDK.md                       ★ 5-minute developer guide — JS/Python/HTTP/presets (v0.14)
 │   ├── CANONICALIZATION.md          ★ normative: JCS vs PiProof profile + interop vectors
 │   ├── NONCE_STORES.md              ★ normative: deployment matrix, File≠distributed
 │   ├── POLICY_MODEL.md              ★ v1 policy grammar + deliberate non-goals
@@ -301,6 +307,14 @@ node src/cli.js passport-verify --passport passport.json --registry registry.jso
 
 # dispute engine (v0.9)
 node src/cli.js dispute --doc passport.json --registry registry.json --out dispute-report.json
+
+# developer layer (v0.14): named presets + one-call decisions
+node src/cli.js policies
+node src/cli.js decide --proof proof.json --registry registry.json \
+  --policy merchant-verification-v1 --nonces nonces.jsonl
+# JS: createVerifier({registry, nonceStore}).decide(proof, {policy:'agent-payment-v1'})
+# HTTP: POST /api/decide {"proof":…,"policy":"reward-eligibility-v1"} → ALLOW | DENY
+# Python (stdlib only): python sdk/python/piproof_sdk.py proof.json --registry registry.json
 
 # or, once installed (`npm i -g .`), documents can be passed positionally:
 npx piproof passport-verify proof-passport.json --registry registry.json
@@ -539,6 +553,7 @@ themselves.
 | IX | `v0.11` | **Distributed nonce state** (`RedisNonceStore` — zero-dep RESP client, atomic `SET NX`, TTL GC), reproducible throughput benchmark (`npm run bench`), honest open-questions register | ✅ shipped |
 | X | `v0.12` | observability hooks (`/api/metrics`, opt-in pure metrics), **signed registry transparency-log design draft** (`docs/TRANSPARENCY_LOG_DESIGN.md` — the v1.0 review centerpiece) | ✅ shipped |
 | X½ | `v0.13` | **external-review hardening**: normative canonicalization profile + 15-vector two-language interop suite, binding classes (`EPOCH_BOUND`/`LOCAL`) with `require_epoch_bound` policy rule and honest passport aggregation, dispute-chain epoch-binding question, nonce-store deployment matrix, policy-grammar scope doc, pseudonymization-vs-anonymity statement, maturity evidence register | ✅ shipped |
+| XII | `v0.14` | **developer layer**: JS SDK (`createVerifier().decide()`), independent pure-Python SDK, named frozen policy presets callable by name, one-call Decision API (`POST /api/decide`) sharing replay state, preset-aware verify endpoints, self-contained `piproof://v1?p=…` proof links | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community

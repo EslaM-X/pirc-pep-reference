@@ -15,6 +15,13 @@ import { toPiProof, verifyPiProof } from '../src/piproof.js';
 import { createPassport, verifyPassport } from '../src/passport.js';
 import { buildDisputeReport as disputeReport } from '../src/dispute.js';
 import { createMetricsRegistry, timed } from '../src/observability.js';
+import { listPolicyPresets, resolvePolicy } from '../src/policy-presets.js';
+import { createVerifier, toProofUri } from '../src/sdk.js';
+
+/** Resolve a request-supplied policy reference; throws on unknown presets. */
+function effectivePolicy(ref) {
+  return resolvePolicy(ref ?? null);
+}
 
 /**
  * Pi Transparency App — local preview server.
@@ -319,11 +326,19 @@ export function createAppServer() {
           res.end('{"error":"invalid json"}');
           return;
         }
+        let policyForCall;
+        try {
+          policyForCall = effectivePolicy(parsed.policy);
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: err.message }));
+          return;
+        }
         const result = verifyPiProof(parsed.proof ?? null, {
           registry: PROOF_WORLD.registry,
           nonceStore: PROOF_NONCES,
           now: Date.now(),
-          policy: parsed.policy ?? null,
+          policy: policyForCall,
           metrics: METRICS
         });
         const body = JSON.stringify(result);
@@ -388,7 +403,15 @@ export function createAppServer() {
           res.end('{"error":"invalid json"}');
           return;
         }
-        const result = verifySubmittedPassport(parsed.passport ?? null, parsed.policy ?? null);
+        let policyOverride;
+        try {
+          policyOverride = effectivePolicy(parsed.policy);
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: err.message }));
+          return;
+        }
+        const result = verifySubmittedPassport(parsed.passport ?? null, policyOverride);
         const body = JSON.stringify(result);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
@@ -454,6 +477,51 @@ export function createAppServer() {
         return;
       }
 
+      if (url.pathname === '/api/policies') {
+        const body = JSON.stringify({ presets: listPolicyPresets() });
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
+      // The Proof Button backend: one call, deterministic ALLOW | DENY.
+      // Shares the Explorer's nonce state, so replays are caught everywhere.
+      if (url.pathname === '/api/decide' && req.method === 'POST') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 262_144) {
+            res.writeHead(413, { 'content-type': MIME['.json'] });
+            res.end('{"error":"document too large"}');
+            return;
+          }
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(raw || '{}');
+        } catch {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end('{"error":"invalid json"}');
+          return;
+        }
+        const doc = parsed.proof ?? parsed.passport ?? parsed.doc ?? null;
+        let policyRef;
+        try {
+          policyRef = effectivePolicy(parsed.policy);
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: err.message }));
+          return;
+        }
+        const verifier = createVerifier({ registry: PROOF_WORLD.registry, nonceStore: PROOF_NONCES, metrics: METRICS });
+        const decision = verifier.decide(doc, { policy: parsed.policy ?? null });
+        METRICS.record('decide', { ok: decision.ok, code: decision.code ?? decision.decision });
+        const body = JSON.stringify(decision);
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
       if (url.pathname === '/api/metrics') {
         const body = JSON.stringify(METRICS.snapshot());
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
@@ -492,7 +560,13 @@ export function createAppServer() {
         }
         SHARE_MAP.set(id, doc);
         METRICS.record('share', { ok: true });
-        const body = JSON.stringify({ id });
+        const payload = { id };
+        if (doc.type === 'PiProof' || doc.type === 'AUREVIA-Evidence-Passport') {
+          try {
+            payload.pi_proof_uri = toProofUri(doc);
+          } catch { /* uri is best-effort; the short link still works */ }
+        }
+        const body = JSON.stringify(payload);
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
         res.end(body);
         return;

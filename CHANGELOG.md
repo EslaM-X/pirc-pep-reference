@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-24
+
+### Added — the developer layer: "Verify with PiProof" in five minutes
+
+The killer-use vision made concrete: applications stop building their own
+verification plumbing and call one deterministic surface instead. No new
+cryptography, no new trust assumptions — a thin composition of the frozen
+core.
+
+- **`src/sdk.js` — JS SDK (zero deps)**:
+  - `createVerifier({registry, nonceStore, now?, metrics?})` bound to the
+    caller's own trusted state;
+  - `verifier.verifyProof()` / `verifier.verifyPassport()` (full verdicts);
+  - **`verifier.decide(doc, {policy})`** — one-call `ALLOW | DENY` with
+    reasons, violations, binding class and the resolved policy name;
+    unknown presets deny cleanly as `POLICY_PRESET_UNKNOWN`, never crash;
+  - `toProofUri()` / `parseProofUri()` — self-contained
+    **`piproof://v1?p=<base64url>`** proof links: the document travels in
+    the URI itself; verification still requires the verifier's registry.
+- **`src/policy-presets.js` — named, frozen, versioned policy defaults**:
+  `merchant-verification-v1`, `marketplace-seller-v1`, `agent-payment-v1`,
+  `community-member-v1`, `reward-eligibility-v1`. Plain auditable data —
+  a change means a new version, never a silent edit. Deliberately NOT a
+  "policy marketplace": no signing, no discovery protocol.
+- **HTTP Decision API**:
+  - `POST /api/decide {proof|passport, policy}` → deterministic decision,
+    sharing the Explorer's nonce state so replays are caught across every
+    endpoint;
+  - `GET /api/policies` lists live presets;
+  - `/api/verify-proof` & `/api/verify-passport` now resolve
+    `{"preset":"name"}` references (`400` on unknown);
+  - `/api/share` responses include a `pi_proof_uri` alongside the short link.
+- **CLI**: `pep policies` (preset catalog) and
+  `pep decide --proof p.json --policy <preset|file>` with ALLOW/DENY exit codes.
+- **Python SDK** (`sdk/python/piproof_sdk.py`, stdlib only): independent
+  implementation of the same pipeline — Ed25519 from scratch, Canonical
+  Profile v1 (raw-key sort parity), envelope + epoch binding, nonce state
+  files, preset resolution, narrowing policy subset. Library API
+  (`PiProofVerifier.decide`) plus CLI.
+- **`docs/SDK.md`** — the five-minute guide across JS / HTTP / CLI / Python.
+
+### Tests
+
+- `test/sdk.test.js` (9) — preset integrity, resolver contract, decide
+  ALLOW/DENY paths incl. ineligible + LOCAL-under-epoch-bound-preset +
+  replay + unknown-preset, passport MIXED binding, URI round-trips.
+- `test/app-sdk.test.js` (5) — `/api/policies`, decide-then-replay over
+  shared state, preset acceptance/rejection on both verify endpoints,
+  share → `pi_proof_uri` → parse → verify round-trip.
+- `test/python-sdk.test.js` — Node↔Python agreement: bound ALLOW, tamper
+  SIGNATURE denial, replay via state file, epoch-bound presets identical.
+- `test/cli.test.js` (+1) — policies listing + decide ALLOW→replay-DENY e2e.
+
+**126 tests green**, attacks 20/20, canonical vectors 15/15 × 2 languages.
+
 ## [0.13.0] - 2026-08-24
 
 ### Added — external-review hardening: precision, honesty, and interop evidence
