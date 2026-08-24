@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-24
+
+### Added — external-review hardening: precision, honesty, and interop evidence
+
+This release converts a professional review's critique into normative
+documentation, protocol-level distinctions, and cross-language proof. No
+frozen-core semantics changed; everything is additive.
+
+- **Binding classes (`EPOCH_BOUND` vs `LOCAL`)** — the portability/state-trust
+  distinction is now explicit in the protocol layer:
+  - `verifyPiProof` returns `binding` on every verdict; proofs carrying
+    `registry_root` are `EPOCH_BOUND`, proofs without it are `LOCAL`
+    (verifiable against whatever trusted registry copy the verifier supplies,
+    with no epoch commitment).
+  - New policy rule **`require_epoch_bound`** lets relying parties refuse
+    LOCAL proofs; violations surface as `POLICY` with a named rule.
+  - Passports aggregate honestly: summary `binding` is
+    `EPOCH_BOUND` / `LOCAL` / `MIXED` (weakest-link semantics).
+  - Dispute chain gains the question **`IS_THE_PROOF_EPOCH_BOUND`** (after
+    `WHICH_EPOCH`) — answerable even in structural-only mode because binding
+    is document-intrinsic.
+  - CLI: `proof-export --epoch-bound` (refuses to emit LOCAL), and
+    `passport-create --require-epoch-bound`; verify outputs now print the
+    binding class.
+
+### Added — canonicalization as a first-class profile
+
+- **`docs/CANONICALIZATION.md`** — normative companion separating RFC 8785
+  (JCS) from the **PiProof Canonical Profile v1**: non-negative safe integers
+  only, NFC string normalization, raw-key sort with normalized serialization,
+  hard rejection of NFC key collisions — with rationale for every deviation
+  and an explicit "never describe this as JCS" implementation requirement.
+- **15 canonical interop vectors** (`vectors/canonical/index.json`),
+  including the raw-sort-vs-normalized-sort divergence case and the NFC key
+  collision rejection. Verified byte-exact by two independent
+  implementations:
+  - Node self-check (`npm run gen:canonical`);
+  - a from-scratch Python canonicalizer (`scripts/cross-canonical.py`,
+    stdlib only) wired into CI across Python 3.10/3.12 × Linux/Windows.
+
+### Changed — naming & claims discipline
+
+- **Dispute Engine repositioned** everywhere (docblocks, README, dashboard
+  EN/AR): it is a **deterministic evidence adjudication layer** — no judge
+  quorum, no challenge periods, no arbitration market, no on-chain
+  settlement, and never described as decentralized dispute resolution.
+- **Trust Policy scope stated plainly** (`docs/POLICY_MODEL.md` + docblock):
+  v1 is a flat narrowing-only checklist, not a policy language — no AND/OR,
+  no nested predicates, no delegation; grammar evolution must preserve
+  monotone-narrowing.
+- **Pseudonymization ≠ anonymity** (SECURITY.md): keyed HMAC tags are
+  non-invertible outside the issuer but NOT unlinkable; per-app uid secrets
+  are load-bearing for cross-application privacy.
+- **Nonce-store deployment matrix** (`docs/NONCE_STORES.md`): normative
+  statement that FileNonceStore is shared-filesystem state — *not* distributed
+  replay protection — plus Redis authority requirements (single strongly
+  consistent logical authority; eventually-consistent backends unsupported;
+  multi-region patterns that stay safe).
+
+### Added — maturity honesty
+
+- **`docs/MATURITY.md`** — the evidence register: what "reference
+  implementation" and "security-engineering prototype" mean here (held, with
+  evidence), what production readiness would require (12 missing-evidence
+  rows: load at scale, multi-region ops, incident history, HSM, Byzantine
+  registries, DR, migrations, external audit…), and language rules for
+  presenting the project. Linked from the top of the README.
+
+### Tests
+
+- `test/binding.test.js` (7 tests) — LOCAL/EPOCH_BOUND verification paths,
+  wrong-epoch fail-closed, policy enforcement both ways, passport aggregation
+  incl. MIXED, dispute-chain question in full + structural modes, CLI flag
+  enforcement end-to-end.
+- Canonical vector suite: 15/15 byte-exact in Node, 15/15 agreement in
+  independent Python. Full suite: **110 tests green**, attack suite 20/20.
+
 ## [0.12.0] - 2026-08-24
 
 ### Added — observability hooks and the transparency-log design draft (v1.0 review centerpiece)

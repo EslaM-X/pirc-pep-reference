@@ -81,6 +81,7 @@ function printProofResult(result) {
     }
   }
   console.log('');
+  console.log(`${DIM}binding: ${result.binding ?? 'UNBOUND (malformed envelope)'}${RESET}`);
   if (result.ok) {
     console.log(`${BOLD}${GREEN}VERDICT: TRUSTED PROOF — don't trust the app, verify the proof.${RESET}`);
   } else {
@@ -110,7 +111,7 @@ function printPassportResult(result) {
     console.log('');
     const s = result.summary;
     console.log(
-      `${DIM}subject: ${s.subject ?? '(none)'} · proofs valid: ${s.proofs_valid}/${s.proofs_total} · evidence_root: ${s.evidence_root}${RESET}`
+      `${DIM}subject: ${s.subject ?? '(none)'} · proofs valid: ${s.proofs_valid}/${s.proofs_total} · binding: ${s.binding} · evidence_root: ${s.evidence_root}${RESET}`
     );
   }
   console.log('');
@@ -134,11 +135,12 @@ Commands:
   eligible     --registry registry.json --uid-hash <h1:hmac-tag>
   sign         --event event.json --key keys/demo.json [--out signed.json]
   verify       --event signed.json --registry registry.json [--nonces nonces.jsonl] [--now <unix-ms>]
-  proof-export --event signed.json [--registry registry.json] [--out proof.json]
+  proof-export --event signed.json [--registry registry.json] [--epoch-bound] [--out proof.json]
   proof-verify --proof proof.json --registry registry.json [--policy policy.json]
                [--nonces nonces.jsonl] [--now <unix-ms>]
   passport-create --proof p1.json [--proof p2.json ...] [--subject tag]
-                  [--policy policy.json] [--now <unix-ms>] [--out passport.json]
+                  [--policy policy.json] [--require-epoch-bound] [--now <unix-ms>]
+                  [--out passport.json]
   passport-verify --passport passport.json --registry registry.json [--policy policy.json]
                   [--nonces nonces.jsonl] [--now <unix-ms>]
   dispute       --doc passport-or-proof.json [--registry registry.json] [--policy policy.json]
@@ -149,6 +151,11 @@ Commands:
 PiProof: a portable envelope around one signed PEP/1 event. Any party holding
 the proof + the verifier's own registry copy can independently confirm every
 claim without trusting the issuing application.
+
+Binding classes: proofs exported WITH --registry are EPOCH_BOUND (pinned to
+one registry generation); without it they are LOCAL (verify against whatever
+trusted copy the verifier supplies). Policies can require epoch binding via
+{"require_epoch_bound": true}.
 
 AUREVIA Evidence Passport/1: one portable evidence record bundling PiProof
 envelopes under a content-addressed evidence root — carry your evidence,
@@ -254,10 +261,17 @@ function cmdDemo() {
 function cmdProofExport(flags) {
   const event = readJson(flags.event);
   const registry = flags.registry ? readJson(flags.registry) : null;
+  if (flags['epoch-bound'] && registry === null) {
+    console.error('--epoch-bound requires --registry: an epoch-bound proof must embed the registry_root of a specific registry generation');
+    process.exitCode = 1;
+    return;
+  }
   const proof = toPiProof(event, { registry });
   if (flags.out) writeJson(flags.out, proof);
   else console.log(JSON.stringify(proof, null, 2));
-  if (flags.out) console.log(`PiProof written to ${flags.out}`);
+  if (flags.out) {
+    console.log(`PiProof written to ${flags.out}${proof.registry_root ? ' (EPOCH_BOUND)' : ' (LOCAL — no epoch pin)'}`);
+  }
 }
 
 function cmdProofVerify(flags, posArg) {
@@ -281,6 +295,14 @@ function cmdPassportCreate(flags) {
     return;
   }
   const proofs = proofFiles.map((f) => readJson(f));
+  if (flags['require-epoch-bound']) {
+    const local = proofs.filter((p) => p?.registry_root === undefined);
+    if (local.length > 0) {
+      console.error(`--require-epoch-bound: ${local.length} proof(s) lack registry_root and are LOCAL, not epoch-bound`);
+      process.exitCode = 1;
+      return;
+    }
+  }
   const policy = flags.policy ? readJson(flags.policy) : null;
   const passport = createPassport({
     proofs,
@@ -289,8 +311,11 @@ function cmdPassportCreate(flags) {
     createdAt: flags.now ? Number(flags.now) : Date.now()
   });
   if (flags.out) {
+    const binding = proofs.every((p) => p?.registry_root !== undefined)
+      ? 'EPOCH_BOUND'
+      : proofs.every((p) => p?.registry_root === undefined) ? 'LOCAL' : 'MIXED';
     writeJson(flags.out, passport);
-    console.log(`AUREVIA Evidence Passport written to ${flags.out} (${proofs.length} proof${proofs.length > 1 ? 's' : ''})`);
+    console.log(`AUREVIA Evidence Passport written to ${flags.out} (${proofs.length} proof${proofs.length > 1 ? 's' : ''}, binding: ${binding})`);
   } else {
     console.log(JSON.stringify(passport, null, 2));
   }

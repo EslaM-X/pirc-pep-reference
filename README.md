@@ -6,6 +6,10 @@
 
 **Deterministic. Signed. Replay-proof. Zero dependencies.**
 
+> **Maturity: security-engineered reference implementation.** Not production
+> infrastructure, and not presented as one — the full evidence register lives
+> in [docs/MATURITY.md](docs/MATURITY.md). v1.0 stays gated on external audit.
+
 [![CI](https://github.com/EslaM-X/piproof/actions/workflows/ci.yml/badge.svg)](https://github.com/EslaM-X/piproof/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-PiOS-teal.svg)](#-license--copyright)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen.svg)](https://nodejs.org)
@@ -79,17 +83,19 @@ It implements exactly what was discussed there, nothing more:
 | | Feature | Detail |
 |:---:|---|---|
 | 🔒 | **Ed25519 signatures** | RFC 8032 via Node stdlib `node:crypto` |
-| 🧊 | **Frozen canonical JSON** | JCS-subset profile, integers only, byte-stable |
-| 🔁 | **Replay protection** | per-app nonce store with **atomic test-and-set** (`claimIfAbsent`); burned only on full pass; durable fsynced file store with cross-process locking |
+| 🧊 | **Frozen canonical JSON** | PiProof Canonical Profile v1 (JCS-*inspired*, deliberately not JCS): non-negative safe integers, NFC strings, raw-key sort — [docs/CANONICALIZATION.md](docs/CANONICALIZATION.md) |
+| 🔁 | **Replay protection** | per-app nonce store with **atomic test-and-set** (`claimIfAbsent`); burned only on full pass; durable fsynced file store with cross-process locking; Redis store for multi-host fleets — [docs/NONCE_STORES.md](docs/NONCE_STORES.md) |
 | ⚖️ | **Bounded weights** | class ceilings enforced *even over valid signatures* |
 | 🪪 | **Registry-gated eligibility** | KYC/Mainnet flags checked server-side, never trusted from the payload |
-| 🕵️ | **Privacy-preserving identities** | `pioneer_uid_hash` is a keyed HMAC-SHA256 tag (versioned `h1:`), NFC-normalized — rainbow-table-proof |
+| 🕵️ | **Keyed pseudonyms** | `pioneer_uid_hash` is a keyed HMAC-SHA256 tag (versioned `h1:`), NFC-normalized — rainbow-table-proof. Pseudonymization ≠ anonymity; per-app secrets are load-bearing ([SECURITY.md](SECURITY.md)) |
 | 🎲 | **Deterministic key material** | optional seed → RFC 8032-fixed Ed25519 keys; committed vectors are **byte-for-byte reproducible** (CI-diffed) |
 | 🔑 | **Key rotation & revocation** | `key_id` indirection, instant revocation path |
 | 🧪 | **Adversarial suite** | 20 attacks, each rejected with its exact error code |
-| 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier |
-| 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment |
-| ⚖️ | **Dispute Engine** | claim→verdict adjudication chain; three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass |
+| 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier; the canonicalization profile has its own 15-vector interop suite agreed by two independent implementations |
+| 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment; honest binding aggregation (`EPOCH_BOUND` / `LOCAL` / `MIXED`) |
+| 📌 | **Binding classes** *(v0.13)* | every proof is explicitly `EPOCH_BOUND` (pinned to one registry generation) or `LOCAL` (verifies against whatever trusted copy the verifier supplies); policies can require epoch pinning via `require_epoch_bound` |
+| ⚖️ | **Dispute Engine** | **deterministic evidence adjudication layer** — claim→verdict chain, three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass. Not a decentralized arbitration protocol, and never described as one |
+| 🧾 | **Trust Policy checklist** *(v1 scope)* | flat narrowing-only rules after crypto verification (`issuer_allowlist`, classes, weights, freshness, KYC/Mainnet, epoch-binding) — good v1, not a policy language; [docs/POLICY_MODEL.md](docs/POLICY_MODEL.md) |
 | 🔀 | **Cross-application proofs** | independent issuers share one verifier epoch; multi-issuer passports verify against a single trusted state |
 | 🤖 | **Agent Evidence** | AI accountability: signed agent actions become portable, independently verifiable audit trails |
 | 📦 | **Zero dependencies** | runtime uses Node.js stdlib only — no supply-chain surface |
@@ -261,6 +267,10 @@ piproof/
 │   └── attacks/*.json                 20 attack vectors + expected codes
 ├── docs/
 │   ├── OPEN_QUESTIONS.md            ★ the honest register — ten hard questions, answered
+│   ├── MATURITY.md                  ★ what is proven vs not — evidence register (v0.13)
+│   ├── CANONICALIZATION.md          ★ normative: JCS vs PiProof profile + interop vectors
+│   ├── NONCE_STORES.md              ★ normative: deployment matrix, File≠distributed
+│   ├── POLICY_MODEL.md              ★ v1 policy grammar + deliberate non-goals
 │   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
 ├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
 ├── SPEC.md             normative specification
@@ -528,6 +538,7 @@ themselves.
 | VIII | `v0.10` | **Killer-demo perfection**: guided 60-second demo, issuer picker, short public links (`/p/<id>`), installable `piproof` CLI with positional args | ✅ shipped |
 | IX | `v0.11` | **Distributed nonce state** (`RedisNonceStore` — zero-dep RESP client, atomic `SET NX`, TTL GC), reproducible throughput benchmark (`npm run bench`), honest open-questions register | ✅ shipped |
 | X | `v0.12` | observability hooks (`/api/metrics`, opt-in pure metrics), **signed registry transparency-log design draft** (`docs/TRANSPARENCY_LOG_DESIGN.md` — the v1.0 review centerpiece) | ✅ shipped |
+| X½ | `v0.13` | **external-review hardening**: normative canonicalization profile + 15-vector two-language interop suite, binding classes (`EPOCH_BOUND`/`LOCAL`) with `require_epoch_bound` policy rule and honest passport aggregation, dispute-chain epoch-binding question, nonce-store deployment matrix, policy-grammar scope doc, pseudonymization-vs-anonymity statement, maturity evidence register | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community

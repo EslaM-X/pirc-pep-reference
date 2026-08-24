@@ -32,6 +32,23 @@ prevents rainbow-table precomputation over the Pi UID space; the version prefix
 allows future rotation to `h2:` without ambiguity. Legacy bare-sha256 tags
 (`[0-9a-f]{64}`) remain readable by `markEligible` but SHOULD NOT be issued.
 
+### Pseudonymization is not anonymity (v0.13, stated explicitly)
+
+The `h1:` HMAC design is **pseudonymization**, not unlinkable anonymity:
+
+- **What it buys:** without the per-issuer secret, an observer cannot map a
+  tag to a Pi UID, and cannot precompute dictionaries over the UID space.
+- **What it does NOT buy:** if two applications share one uid secret, tags
+  are identical across them and **cross-application correlation becomes
+  trivial**. Unlinkability is therefore a *secret-management* property, not a
+  cryptographic guarantee of this scheme.
+- Operational rules that follow: each application MUST hold its own
+  `uidSecret`; sharing or centralizing secrets re-couples all pseudonyms;
+  rotation changes tags wholesale (`h1:` → `h2:` prefix keeps old evidence
+  interpretable).
+- Any external claim of "privacy-preserving" MUST be read as "keyed,
+  non-invertible outside the issuer" — never as "anonymous" or "unlinkable".
+
 ### Nonce-store guarantees
 
 - `InMemoryNonceStore.claimIfAbsent` is indivisible within a process
@@ -77,8 +94,12 @@ and belongs to the launchpad governance layer above it.
 ### Other v1 limitations
 
 - A verifier fleet spanning multiple hosts MUST still share nonce state
-  externally (DB unique constraint or Redis SETNX); `FileNonceStore` covers a
-  single host with real cross-process locking and crash durability.
+  externally; the per-topology guarantees (and the explicit statement that
+  `FileNonceStore` is NOT distributed replay protection) are normative in
+  [docs/NONCE_STORES.md](docs/NONCE_STORES.md). `FileNonceStore` covers a
+  single host with real cross-process locking and crash durability;
+  `RedisNonceStore` covers multi-host fleets behind one strongly consistent
+  authority.
 - The registry is a **point-in-time snapshot**: revocations and eligibility
   flips take effect when verifiers load the updated registry, not
   instantaneously fleet-wide.

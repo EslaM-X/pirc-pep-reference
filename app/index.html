@@ -359,8 +359,8 @@
 
   <!-- Dispute Mode -->
   <section class="card" id="dispute-card">
-    <h2><span data-i18n="dispute_h">Dispute Mode</span>
-        <span class="badge neutral" data-i18n="dispute_sub">From claim to final verdict</span></h2>
+<h2><span data-i18n="dispute_h">Dispute Mode</span>
+<span class="badge neutral" data-i18n="dispute_sub">Deterministic evidence adjudication — from claim to final verdict</span></h2>
     <div id="dispute-verdict" class="pp-banner idle" data-i18n="dispute_idle">NO DISPUTE REPORT YET</div>
     <table class="dispute-table" id="dispute-chain" hidden></table>
     <div class="pirow">
@@ -460,10 +460,10 @@ const I18N = {
     pass_why:"Why carry a passport?",
     pass_why_body:"An Evidence Passport bundles signed PEP/1 events under one content-addressed evidence root, bound to a pseudonymous subject. The holder — not the platform — carries the evidence. Anyone with the file or its share link re-checks every signature against their own trusted registry: no account, no trust in the issuing app. Don't trust the platform; verify the claim.",
     carry_tagline:"Proofs you can carry. Evidence anyone can verify.",
-    dispute_h:"Dispute Mode", dispute_sub:"From claim to final verdict",
+    dispute_h:"Dispute Mode", dispute_sub:"Deterministic evidence adjudication — from claim to final verdict",
     dispute_btn:"Generate dispute report", dispute_export:"Export report (.json)",
     dispute_idle:"NO DISPUTE REPORT YET", dispute_source:"Source document",
-    dispute_note:"A dispute replaces screenshots and scattered logs with one adjudicable chain: who issued it, what was signed, which policy, which epoch, replayed?, key valid?, within policy? Three honest outcomes only: VALID · INVALID · UNVERIFIABLE. UNVERIFIABLE is never treated as a pass.",
+    dispute_note:"Deterministic evidence adjudication — not a decentralized arbitration protocol. One adjudicable chain replaces screenshots: who issued it, what was signed, which policy, which epoch, is it epoch-bound, replayed?, key valid?, within policy? Three honest outcomes only: VALID · INVALID · UNVERIFIABLE. UNVERIFIABLE is never treated as a pass.",
     agent_h:"Agent Evidence", agent_sub:"AI accountability trail",
     agent_name:"Agent id", agent_task:"Completed task", agent_weight:"Weight",
     agent_issue:"Issue agent evidence",
@@ -518,10 +518,10 @@ const I18N = {
     pass_why:"لماذا تحمل جوازًا؟",
     pass_why_body:"يجمع جواز الإثبات أحداث PEP/1 موقّعة تحت جذر إثبات واحد معنون بالمحتوى، مرتبط بموضوع يحمل اسمًا مستعارًا. الحامل — لا المنصة — هو من يحمل الدليل. أي شخص لديه الملف أو رابط المشاركة يعيد فحص كل توقيع مقابل سجله الموثوق الخاص: بلا حساب، وبلا ثقة في التطبيق المُصدر. لا تثق بالمنصة؛ تحقّق من الادعاء.",
     carry_tagline:"أدلة تحملها معك. إثباتات يتحقق منها أي أحد.",
-    dispute_h:"وضع النزاعات", dispute_sub:"من الادعاء إلى الحكم النهائي",
+    dispute_h:"وضع النزاعات", dispute_sub:"فصل أدلة حتمي — من الادعاء إلى الحكم النهائي",
     dispute_btn:"توليد تقرير النزاع", dispute_export:"تصدير التقرير (.json)",
     dispute_idle:"لا يوجد تقرير نزاع بعد", dispute_source:"المستند المصدر",
-    dispute_note:"النزاع يستبدل لقطات الشاشة والسجلات المتفرقة بسلسلة واحدة قابلة للفصل: من أصدره؟ ماذا وُقّع؟ أي سياسة؟ أي حقبة؟ هل أُعيد إصداره؟ هل المفتاح سليم؟ هل الادعاء داخل السياسة؟ ثلاث نتائج صادقة فقط: صالح · غير صالح · غير قابل للتحقق. «غير قابل للتحقق» لا يُعتبر نجاحًا أبدًا.",
+    dispute_note:"فصل أدلة حتمي — وليس بروتوكول تحكيم لامركزي. سلسلة واحدة قابلة للفصل تستبدل لقطات الشاشة: من أصدره؟ ماذا وُقّع؟ أي سياسة؟ أي حقبة؟ هل الدليل مربوط بحقبة؟ هل أُعيد إصداره؟ هل المفتاح سليم؟ هل الادعاء داخل السياسة؟ ثلاث نتائج صادقة فقط: صالح · غير صالح · غير قابل للتحقق. «غير قابل للتحقق» لا يُعتبر نجاحًا أبدًا.",
     agent_h:"أدلة الوكلاء", agent_sub:"سجل مساءلة الذكاء الاصطناعي",
     agent_name:"معرّف الوكيل", agent_task:"المهمة المكتملة", agent_weight:"الوزن",
     agent_issue:"إصدار دليل وكيل",

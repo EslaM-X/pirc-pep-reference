@@ -134,7 +134,7 @@ test('POST /api/dispute returns the full adjudication chain', async () => {
     assert.equal(rep.json.verdict, 'VALID');
     assert.deepEqual(rep.json.chain.map((c) => c.question), [
       'CLAIM', 'WHO_ISSUED_IT', 'WHAT_WAS_SIGNED', 'WHICH_POLICY', 'WHICH_EPOCH',
-      'WAS_IT_REPLAYED', 'IS_THE_KEY_VALID', 'IS_THE_CLAIM_WITHIN_POLICY', 'FINAL_VERDICT'
+      'IS_THE_PROOF_EPOCH_BOUND', 'WAS_IT_REPLAYED', 'IS_THE_KEY_VALID', 'IS_THE_CLAIM_WITHIN_POLICY', 'FINAL_VERDICT'
     ]);
 
     const junk = await post(base, '/api/dispute', { doc: { nope: 1 } });
