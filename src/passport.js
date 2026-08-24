@@ -106,14 +106,14 @@ function _verifyPassport(passport, { registry, nonceStore, now = Date.now(), pol
   const envErr = envelopeError(passport);
   if (envErr !== null) {
     step('PASSPORT_ENVELOPE', false, envErr);
-    return { ok: false, code: 'PASSPORT_ENVELOPE', steps, results: [] };
+    return { ok: false, code: 'PASSPORT_ENVELOPE', binding: null, steps, results: [] };
   }
   step('PASSPORT_ENVELOPE', true);
 
   const actualRoot = evidenceRootHash(passport.proofs);
   if (actualRoot !== passport.evidence_root) {
     step('EVIDENCE_ROOT', false, `expected ${passport.evidence_root}, computed ${actualRoot}`);
-    return { ok: false, code: 'EVIDENCE_ROOT', steps, results: [] };
+    return { ok: false, code: 'EVIDENCE_ROOT', binding: null, steps, results: [] };
   }
   step('EVIDENCE_ROOT', true, actualRoot);
 
@@ -134,17 +134,29 @@ function _verifyPassport(passport, { registry, nonceStore, now = Date.now(), pol
   step('PROOFS_VERIFIED', allOk, `${results.filter((r) => r.ok).length}/${results.length} valid`);
   if (!allOk) firstCode = firstCode ?? 'PROOFS_VERIFIED';
 
+  // Binding aggregation: a passport is only as epoch-pinned as its weakest
+  // proof. EPOCH_BOUND requires every embedded envelope to carry and match a
+  // registry_root; any mix is reported honestly as MIXED.
+  const bindings = results.map((r) => r.binding);
+  const binding = bindings.every((b) => b === 'EPOCH_BOUND')
+    ? 'EPOCH_BOUND'
+    : bindings.every((b) => b === 'LOCAL')
+      ? 'LOCAL'
+      : 'MIXED';
+
   const summary = {
     subject: passport.subject ?? null,
     created_at: passport.created_at,
     evidence_root: passport.evidence_root,
     proofs_total: results.length,
-    proofs_valid: results.filter((r) => r.ok).length
+    proofs_valid: results.filter((r) => r.ok).length,
+    binding
   };
 
   return {
     ok: allOk,
     code: allOk ? null : (firstCode || 'PASSPORT_INVALID'),
+    binding,
     steps,
     results,
     summary,

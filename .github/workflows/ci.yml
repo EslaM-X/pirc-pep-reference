@@ -54,3 +54,5 @@ jobs:
         run: npm run gen:vectors
       - name: independent Python verifier (RFC 8032 Ed25519, stdlib only)
         run: python scripts/cross-verify.py
+      - name: independent Python canonicalizer (PiProof Canonical Profile, stdlib only)
+        run: python scripts/cross-canonical.py

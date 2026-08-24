@@ -49,7 +49,7 @@ test('dispute VALID path walks the full question chain in order', () => {
   const questions = report.chain.map((c) => c.question);
   assert.deepEqual(questions, [
     'CLAIM', 'WHO_ISSUED_IT', 'WHAT_WAS_SIGNED', 'WHICH_POLICY', 'WHICH_EPOCH',
-    'WAS_IT_REPLAYED', 'IS_THE_KEY_VALID', 'IS_THE_CLAIM_WITHIN_POLICY', 'FINAL_VERDICT'
+    'IS_THE_PROOF_EPOCH_BOUND', 'WAS_IT_REPLAYED', 'IS_THE_KEY_VALID', 'IS_THE_CLAIM_WITHIN_POLICY', 'FINAL_VERDICT'
   ]);
   for (const c of report.chain) {
     if (c.question === 'FINAL_VERDICT') continue;

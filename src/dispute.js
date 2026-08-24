@@ -9,8 +9,14 @@ import { PIPROOF_TYPE, verifyPiProof } from './piproof.js';
  * is answered by walking the exact verification pipeline:
  *
  *   CLAIM → WHO ISSUED IT? → WHAT WAS SIGNED? → WHICH POLICY? →
- *   WHICH EPOCH? → WAS IT REPLAYED? → IS THE KEY VALID? →
- *   IS THE CLAIM WITHIN POLICY? → FINAL VERDICT
+ *   WHICH EPOCH? → IS IT EPOCH-BOUND? → WAS IT REPLAYED? →
+ *   IS THE KEY VALID? → IS THE CLAIM WITHIN POLICY? → FINAL VERDICT
+ *
+ * Naming honesty: this is a DETERMINISTIC EVIDENCE ADJUDICATION LAYER —
+ * the same inputs always yield the same report. It is NOT a decentralized
+ * dispute-resolution protocol: no judge quorum, no challenge periods, no
+ * arbitration market, no on-chain settlement. Human governance consumes
+ * these reports; it does not emerge from them.
  *
  * Three-state outcome, deliberately honest:
  *   VALID        — every layer checked here passed.
@@ -29,6 +35,7 @@ const QUESTION_ORDER = Object.freeze([
   'WHAT_WAS_SIGNED',
   'WHICH_POLICY',
   'WHICH_EPOCH',
+  'IS_THE_PROOF_EPOCH_BOUND',
   'WAS_IT_REPLAYED',
   'IS_THE_KEY_VALID',
   'IS_THE_CLAIM_WITHIN_POLICY'
@@ -105,6 +112,10 @@ export function buildDisputeReport({ doc, registry = null, nonceStore = null, no
     chain.push(q('WHAT_WAS_SIGNED', 'OK', proofs.map((p) => fingerprint(p?.event ?? {}))));
     chain.push(q('WHICH_POLICY', 'OK', policy ?? (kind === PASSPORT_TYPE ? doc.policy : null) ?? null));
     chain.push(q('WHICH_EPOCH', 'UNVERIFIABLE', 'no trusted registry copy supplied to this verifier'));
+    chain.push(q('IS_THE_PROOF_EPOCH_BOUND', 'OK', {
+      per_proof: proofs.map((p) => (p?.registry_root !== undefined ? 'EPOCH_BOUND' : 'LOCAL')),
+      note: 'document-intrinsic — readable without any registry'
+    }));
     chain.push(q('WAS_IT_REPLAYED', 'UNVERIFIABLE', 'requires a live nonce store'));
     chain.push(q('IS_THE_KEY_VALID', 'UNVERIFIABLE', 'requires the registry'));
     chain.push(q('IS_THE_CLAIM_WITHIN_POLICY', 'UNVERIFIABLE', 'requires the registry-backed pipeline'));
@@ -142,6 +153,15 @@ export function buildDisputeReport({ doc, registry = null, nonceStore = null, no
   };
   const epochStatus = (steps.get('REGISTRY_ROOT') === false || !rootOk) ? 'INVALID' : 'OK';
   chain.push(q('WHICH_EPOCH', epochStatus, epochAnswer));
+
+  // Binding is document-intrinsic (presence of registry_root), so it is
+  // reported even when epoch matching failed — the two questions answer
+  // different things: WHICH_EPOCH = does the pin match THIS verifier's
+  // registry; IS_THE_PROOF_EPOCH_BOUND = was the proof pinned at all.
+  chain.push(q('IS_THE_PROOF_EPOCH_BOUND', 'OK', {
+    per_proof: proofs.map((p) => (p?.registry_root !== undefined ? 'EPOCH_BOUND' : 'LOCAL')),
+    note: 'EPOCH_BOUND proofs are cryptographically tied to one registry generation; LOCAL proofs verify against whatever trusted copy the verifier supplies'
+  }));
 
   const replayed = steps.get('NONCE_REPLAY') === false;
   chain.push(q('WAS_IT_REPLAYED', replayed ? 'INVALID' : 'OK', replayed
