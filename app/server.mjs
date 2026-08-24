@@ -293,6 +293,20 @@ export function createAppServer() {
     try {
       const url = new URL(req.url, 'http://localhost');
 
+      // v0.17 security headers on every response — the gateway era.
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+      res.setHeader('X-Frame-Options', 'DENY');
+
+      if (url.pathname === '/healthz') {
+        const body = JSON.stringify({ ok: true });
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(body);
+        return;
+      }
+
       if (url.pathname === '/api/snapshot') {
         const body = JSON.stringify(buildSnapshot());
         res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
@@ -588,6 +602,62 @@ export function createAppServer() {
       if (url.pathname === '/verify' || url.pathname === '/verify.html') {
         const html = await readFile(path.join(ROOT, 'verify.html'));
         res.writeHead(200, { 'content-type': MIME['.html'] });
+        res.end(html);
+        return;
+      }
+
+      // ------------------------------------------------------------------
+      // v0.17 — public offline verification gateway (privacy phase).
+      // The browser fetches only this PUBLIC registry export and verifies
+      // the document locally; the document itself never reaches any server.
+      // ------------------------------------------------------------------
+      const GATEWAY_SRC_WHITELIST = Object.freeze({
+        'canonical.js': path.join(path.dirname(ROOT), 'src', 'canonical.js'),
+        'constants.js': path.join(path.dirname(ROOT), 'src', 'constants.js'),
+        'schema.js': path.join(path.dirname(ROOT), 'src', 'schema.js'),
+        'registry.js': path.join(path.dirname(ROOT), 'src', 'registry.js'),
+        'web-ed25519.js': path.join(path.dirname(ROOT), 'src', 'web-ed25519.js'),
+        'offline-verifier.js': path.join(path.dirname(ROOT), 'src', 'offline-verifier.js'),
+        'gateway.app.mjs': path.join(ROOT, 'gateway.app.mjs'),
+        'gateway.css': path.join(ROOT, 'gateway.css')
+      });
+
+      if (url.pathname === '/registry.json') {
+        const pub = {
+          version: PROOF_WORLD.registry.version,
+          apps: PROOF_WORLD.registry.apps,
+          eligible_users: PROOF_WORLD.registry.eligible_users
+        };
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(JSON.stringify(pub, null, 2));
+        return;
+      }
+
+      if (url.pathname.startsWith('/gateway-src/')) {
+        const name = url.pathname.slice('/gateway-src/'.length);
+        const file = GATEWAY_SRC_WHITELIST[name];
+        if (!file) {
+          res.writeHead(404, { 'content-type': MIME['.json'] });
+          res.end('{"error":"not found"}');
+          return;
+        }
+        const body = await readFile(file);
+        res.writeHead(200, {
+          'content-type': name.endsWith('.css') ? MIME['.css'] : MIME['.js'],
+          'cache-control': 'no-store'
+        });
+        res.end(body);
+        return;
+      }
+
+      if (url.pathname === '/gateway') {
+        const html = await readFile(path.join(ROOT, 'gateway.html'));
+        res.writeHead(200, {
+          'content-type': MIME['.html'],
+          // strict CSP: no inline script, no remote origins, nothing framed
+          'content-security-policy':
+            "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+        });
         res.end(html);
         return;
       }

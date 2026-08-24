@@ -23,6 +23,7 @@ const L = {
       'canonical.js',   // PiProof Canonical Profile v1
       'constants.js',   // protocol constants & grammars
       'keys.js',        // Ed25519 glue (Node crypto)
+      'web-ed25519.js', // pure-JS RFC 8032 verification (browser gateway)
       'schema.js',      // document shape validation
       'nonces.js',      // replay state (InMemory / File / Redis)
       'redis-nonces.js', // distributed replay state backend
@@ -33,9 +34,10 @@ const L = {
   1: {
     name: 'protocol-core',
     modules: [
-      'events.js',      // event construction, signing, uid hashing
-      'registry.js',    // app/key eligibility registry
-      'verify.js'       // verifySignedEvent pipeline
+      'events.js',          // event construction, signing, uid hashing
+      'registry.js',        // app/key eligibility registry
+      'verify.js',          // verifySignedEvent pipeline
+      'offline-verifier.js' // in-browser G1–G9 pipeline (public gateway)
     ]
   },
   // L2 — policy & evidence semantics: what a verdict MEANS for a relying party.

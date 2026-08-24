@@ -1,6 +1,6 @@
 ﻿{
   "name": "piproof",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA â€” a Pi SDK-integrated cryptographic transparency dashboard.",
   "type": "module",
   "author": {

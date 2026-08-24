@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-24
+
+### Added — public verification gateway & the privacy phase
+
+The killer-use gap closes: anyone can now verify a document with
+**cryptographic certainty and zero disclosure** — the document never leaves
+the verifier's browser.
+
+- **Pure-JS RFC 8032 core (`src/web-ed25519.js`, L0)**: Ed25519 verification
+  + SHA-512 implemented from scratch in BigInt JavaScript, browser-safe,
+  verify-only by construction. Every magic constant is *derived*
+  (SHA-512 H/K tables from fractional roots of primes; Ed25519's `d`,
+  base point, √-1 from `2^255-19` alone) — fewer transcribed hex strings,
+  fewer silent bugs. Strict decoding rejects non-canonical `S ≥ L`.
+  Cross-checked exhaustively against node:crypto in tests (random keys ×
+  message sizes, bit-flips of msg/R/S, wrong-key, malleable S, garbage).
+- **In-browser pipeline (`src/offline-verifier.js`, L1)**: the G1–G9 order
+  re-run locally against the public registry export — same canonical
+  fixed-point rule, same error codes. The honesty centerpiece:
+  **NONCE_REPLAY is gold-labeled UNVERIFIABLE offline**, never green-washed;
+  epoch binding likewise. Verdicts say "verified offline", not "verified".
+- **Gateway surface (`/gateway`)**: CSP-locked page (`default-src 'none';
+  script-src 'self'` — no inline script) accepting paste/file/deep-link for
+  signed events, PiProof envelopes, and Evidence Passports; gate-by-gate
+  table; SHA-256 fingerprint of the exact registry bytes displayed.
+- **Host hardening**: global security headers on every response
+  (nosniff / DENY framing / no-referrer / Permissions-Policy /
+  COOP), `GET /healthz`, public `GET /registry.json` export, and a
+  whitelist-only `/gateway-src/` static route (traversal-proof, 404 on
+  anything unlisted).
+- **Normative privacy model** — [docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md):
+  data inventory (who sees what), keyed-pseudonym rotation story (`h1:` →
+  `h2:`), the gateway's five-point honesty contract, and the honest limits
+  (intra-deployment tag stability, mirror-registries, ZK out of scope for
+  frozen PEP/1).
+
+### Governance
+
+Layer map extended: `web-ed25519.js` classified L0,
+`offline-verifier.js` L1 (`scripts/check-layers.mjs`). New test suite
+`test/web-offline.test.js` + extended `app/app.test.js`.
+
+### Verification
+
+139 tests green · layer check clean · attack matrix parity through the
+offline path · live sample proof verified end-to-end via the offline module.
+
 ## [0.16.1] - 2026-08-24
 
 ### Added — mechanized verification goes live in CI
