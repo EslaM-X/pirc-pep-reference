@@ -53,6 +53,70 @@ test('server serves index and snapshot endpoints', async () => {
   }
 });
 
+test('gateway: strict CSP, healthz, security headers and public registry export', async () => {
+  const server = createAppServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const base = `http://127.0.0.1:${port}`;
+
+  try {
+    // healthz
+    const health = await fetch(`${base}/healthz`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { ok: true });
+
+    // gateway page with strict CSP
+    const gw = await fetch(`${base}/gateway`);
+    assert.equal(gw.status, 200);
+    const csp = gw.headers.get('content-security-policy');
+    assert.match(csp, /default-src 'none'/);
+    assert.match(csp, /script-src 'self'/);
+    assert.doesNotMatch(csp, /unsafe-inline/);
+
+    // global security headers
+    assert.equal(gw.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(gw.headers.get('x-frame-options'), 'DENY');
+    assert.equal(gw.headers.get('referrer-policy'), 'no-referrer');
+
+    // whitelisted module assets resolve; unknown ones do not
+    const mod = await fetch(`${base}/gateway-src/offline-verifier.js`);
+    assert.equal(mod.status, 200);
+    assert.match(mod.headers.get('content-type'), /javascript/);
+    const glue = await fetch(`${base}/gateway-src/gateway.app.mjs`);
+    assert.equal(glue.status, 200);
+    const css = await fetch(`${base}/gateway-src/gateway.css`);
+    assert.equal(css.status, 200);
+    const sneaky = await fetch(`${base}/gateway-src/verify.js`);
+    assert.equal(sneaky.status, 404);
+    const escape = await fetch(`${base}/gateway-src/..%2fserver.mjs`);
+    assert.equal(escape.status, 404);
+
+    // registry export: public keys + eligibility hashes only — no secrets exist there
+    const reg = await (await fetch(`${base}/registry.json`)).json();
+    assert.equal(reg.version, 1);
+    const apps = Object.keys(reg.apps);
+    assert.ok(apps.includes('demo-app'));
+    for (const app of Object.values(reg.apps)) {
+      for (const key of Object.values(app.keys)) {
+        assert.match(key.public_key_pem, /BEGIN PUBLIC KEY/);
+        assert.ok(!('private' in key));
+      }
+    }
+    for (const hash of Object.keys(reg.eligible_users)) {
+      assert.match(hash, /^h1:[A-Za-z0-9_-]{43}$/);
+    }
+
+    // end-to-end: sample proof verifies OFFLINE through the same module the browser runs
+    const { verifyEventOffline } = await import('../src/offline-verifier.js');
+    const sample = await (await fetch(`${base}/api/sample-proof`)).json();
+    const r = verifyEventOffline(sample.proof.event, { registry: reg });
+    assert.equal(r.ok, true);
+    assert.equal(r.verifiedOffline, true);
+  } finally {
+    server.close();
+  }
+});
+
 test('PiProof explorer endpoints verify, replay-catch and enforce policy', async () => {
   const server = createAppServer();
   await new Promise((r) => server.listen(0, r));
