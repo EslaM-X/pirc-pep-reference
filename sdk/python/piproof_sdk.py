@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-PiProof Python SDK — independent verifier, standard library only.
+PiProof Python SDK â€” independent verifier, standard library only.
 
 Same pipeline as the Node implementation: closed schema, registry-gated
-eligibility, PiProof Canonical Profile v1 bytes, RFC 8032 Ed25519, freshness,
+eligibility, PiProof Canonical Profile v1.1 bytes, RFC 8032 Ed25519, freshness,
 weight ceilings, atomic nonce replay protection, epoch binding, and the
 narrowing-only policy rule subset.
 
@@ -18,7 +18,7 @@ CLI use:
         [--policy '{"preset":"..."}'|'{"rules":...}'|file.json] \\
         [--state nonces.json] [--now <unix-ms>]
 
-Exit codes: 0 ALLOW · 1 DENY · 2 usage/IO error.
+Exit codes: 0 ALLOW Â· 1 DENY Â· 2 usage/IO error.
 """
 import argparse
 import base64
@@ -121,7 +121,7 @@ def pem_to_raw32(pem):
     return der[12:]
 
 
-# ------------------------------------------- PiProof Canonical Profile v1 ---
+# ------------------------------------------- PiProof Canonical Profile v1.1 ---
 MAX_DEPTH = 64
 
 
@@ -175,9 +175,13 @@ def canonicalize(value, depth=0):
             if norm in seen:
                 raise CanonicalError(f"normalized key collision under NFC: {json.dumps(raw)}")
             seen.add(norm)
-        parts = []
-        for raw in sorted(value.keys(), key=_utf16_key):  # raw-key sort, NFC output
-            parts.append(_js_string(unicodedata.normalize('NFC', raw)) + ':' + canonicalize(value[raw], depth + 1))
+        # Profile v1.1: sort NFC FORMS (utf-16-BE byte order), not raw keys â€”
+        # mirrors src/canonical.js; keeps canon(parse(canon(x))) a fixed point.
+        entries = sorted(
+            ((unicodedata.normalize('NFC', raw), value[raw]) for raw in value.keys()),
+            key=lambda pair: _utf16_key(pair[0]),
+        )
+        parts = [_js_string(norm) + ':' + canonicalize(val, depth + 1) for norm, val in entries]
         return '{' + ','.join(parts) + '}'
     raise CanonicalError(f"unsupported type: {type(value).__name__}")
 
@@ -424,7 +428,7 @@ class PiProofVerifier:
             ev = proof["event"]
             if policy.get("require_epoch_bound") and binding != "EPOCH_BOUND":
                 violations.append({"rule": "require_epoch_bound",
-                                   "detail": f"proof is {binding} — policy requires epoch pinning"})
+                                   "detail": f"proof is {binding} â€” policy requires epoch pinning"})
             if "issuer_allowlist" in policy and ev["app_id"] not in policy["issuer_allowlist"]:
                 violations.append({"rule": "issuer_allowlist",
                                    "detail": f"issuer {ev['app_id']} not on accepting list"})

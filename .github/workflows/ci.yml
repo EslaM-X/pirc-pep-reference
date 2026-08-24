@@ -21,8 +21,12 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: unit + integration tests
         run: npm test
+      - name: layer governance (L0…L4 import rules)
+        run: npm run layers
       - name: adversarial attack suite
         run: npm run attacks
+      - name: fuzzing suite (quick mode, seeded)
+        run: npm run fuzz:quick
       - name: regenerate and re-verify test vectors
         run: npm run gen:vectors
       - name: vectors are byte-for-byte reproducible
@@ -54,5 +58,7 @@ jobs:
         run: npm run gen:vectors
       - name: independent Python verifier (RFC 8032 Ed25519, stdlib only)
         run: python scripts/cross-verify.py
-      - name: independent Python canonicalizer (PiProof Canonical Profile, stdlib only)
+      - name: independent Python canonicalizer (PiProof Canonical Profile v1.1, stdlib only)
         run: python scripts/cross-canonical.py
+      - name: differential fuzzing vs Node (seeded, quick mode)
+        run: node scripts/fuzz.mjs --quick --only=cross-lang-diff,parser-differential

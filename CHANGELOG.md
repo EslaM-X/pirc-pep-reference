@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-08-24
+
+### Added — adversarial depth & formal structure
+
+The external-review hardening phase, part two: instead of adding features,
+this release adds the machinery that finds its own bugs and the documents
+that make claims checkable. It paid for itself immediately (see Changed).
+
+- **`scripts/fuzz.mjs` — seeded property + differential fuzzing suite**
+  (`npm run fuzz`, `fuzz:quick`, `--seed N`, `--only=…`, `FUZZ_DUMP=<dir>`):
+  - *canonical-property*: determinism, idempotence
+    (`canon(parse(canon(x))) === canon(parse(x))`), reject-only-
+    CanonicalError, with Node↔Python cross-examination of every anomaly;
+  - *schema*: `verifySignedEvent` fails closed under random mutation of valid
+    events — including `__proto__` injection attempts;
+  - *unicode*: NFC-equivalent inputs stay signature-equivalent; NFC-colliding
+    keys are always rejected;
+  - *cross-lang-diff* + *parser-differential*: byte-level Node↔Python
+    differential testing through a persistent stdlib driver
+    (`scripts/fuzz-diff-driver.py`); structural-shape comparison catches
+    parse divergences, not just canonicalization divergences;
+  - *concurrency*: K real OS processes race one nonce — exactly one winner,
+    every round;
+  - runtime-parser anomalies are classified separately from protocol
+    violations: V8 quirks are recorded and reported loudly (see SECURITY.md)
+    but only `FUZZ_STRICT=1` makes them fatal, so CI stays deterministic
+    across Node builds.
+- **Layer governance** — `scripts/check-layers.mjs` + normative
+  [docs/LAYERS.md](docs/LAYERS.md): modules classified L0 primitives → L4
+  presentation; a single mechanical rule (`depLayer <= myLayer`), unclassified
+  files are violations, wired into CI. The zero-dependency audit surface is
+  now enforced, not just intended.
+- **Engineering formal model** — [docs/FORMAL_MODEL.md](docs/FORMAL_MODEL.md):
+  the G1–G9 verification pipeline as an ordered fail-closed state machine,
+  twelve security invariants (INV-01…INV-12) each with enforced-by /
+  verified-by traceability, crash-failure semantics of the claim path, and a
+  normative implementer MUST list. A paper model, honestly labeled as one.
+- **Liveness-aware nonce-lock ownership** (v0.15 hardening of
+  `FileNonceStore`): lockfiles now record `{pid, host, acquiredAt}`; a lock
+  held by a live same-host process is **never stolen** regardless of age;
+  provably dead owners may be taken after the staleness window; foreign-host
+  and legacy locks keep time-based fallback. Closes the classic
+  stale-lock-timeout double-entry race. Semantics pinned by
+  `test/lock-semantics.test.js` (6 cases incl. K-process races).
+- **V8 `JSON.parse` divergence disclosed** in [SECURITY.md](SECURITY.md):
+  under allocation churn, Node can mis-parse byte-identical JSON
+  (phantom-key shape differences vs Python). Documented as a *runtime* defect
+  with the full impact analysis: PiProof's schema-pinned key sets make it
+  unreachable in every protocol path.
+
+### Changed — Profile v1.1 (canonicalization amendment)
+
+- **Key sorting now happens on NFC forms, not raw keys**, in both
+  implementations (`src/canonical.js`, `sdk/python/piproof_sdk.py`). The v1.0
+  rule was deterministic per document but **not a fixed point**: fuzzing found
+  inputs where `canon(parse(c)) !== c` for already-canonical `c`, silently
+  breaking `isCanonical()` on documents the protocol itself produced. With
+  NFC-form sorting the emitted text IS the sort key, so idempotence holds by
+  construction. Wire compatibility: schema-valid envelopes never contained
+  NFC-unstable key pairs (the collision rule rejects them), so no previously
+  signed payload changes meaning. Interop vector `canon-012` pins the amended
+  order; all 15 vectors regenerated and byte-exact across languages.
+- `docs/CANONICALIZATION.md` retitled to Profile v1.1 with the amendment's
+  rationale, a new fixed-point conformance requirement, and the honest story
+  of how the bug was found.
+- SECURITY.md nonce-store guarantees restated precisely around liveness-aware
+  ownership ("two verifiers on one host cannot both win" — with the exact
+  takeover rules spelled out); NONCE_STORES.md gains the same semantics.
+- MATURITY.md updated: test count 132, fuzzing/formal-model/layers listed as
+  held evidence, two new missing-evidence rows (#13 independent third-party
+  implementation, #14 mechanized verification) kept deliberately open.
+- README roadmap XV, feature rows, and project map extended accordingly.
+
+### Fixed
+
+- Fuzz driver protocol deadlock on Windows pipes: interactive CANC responses
+  were block-buffered (`sys.stdout.write` without flush) while PARSE used
+  `flush=True`; cross-lang campaigns hung until EOF. Driver now flushes every
+  response explicitly.
+
 ## [0.14.0] - 2026-08-24
 
 ### Added — the developer layer: "Verify with PiProof" in five minutes

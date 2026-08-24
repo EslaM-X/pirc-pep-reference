@@ -89,7 +89,7 @@ pep decide proof.json --registry registry.json \
 ## 5. Python SDK (standard library only)
 
 `sdk/python/piproof_sdk.py` is an independent implementation of the same
-pipeline (Ed25519 from scratch, Canonical Profile v1, envelope + binding +
+pipeline (Ed25519 from scratch, Canonical Profile v1.1, envelope + binding +
 policy subset). It agrees byte-for-byte with Node on every vector.
 
 ```python
