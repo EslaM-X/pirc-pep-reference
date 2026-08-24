@@ -16,9 +16,9 @@ reviewer can verify in seconds.
 
 | Layer | Name | Modules | May import |
 |---|---|---|---|
-| L0 | primitives | `canonical`, `constants`, `keys`, `schema`, `nonces`, `redis-nonces`, `observability` | nothing above L0 |
-| L1 | protocol-core | `events`, `registry`, `verify` | L0 |
-| L2 | policy-evidence | `policy`, `policy-presets`, `piproof`, `passport`, `escrow`, `pfloor` | L0–L1 |
+| L0 | primitives | `canonical`, `constants`, `keys`, `web-ed25519`, `schema`, `nonces`, `redis-nonces`, `observability` | nothing above L0 |
+| L1 | protocol-core | `events`, `registry`, `verify`, `offline-verifier` | L0 |
+| L2 | policy-evidence | `policy`, `policy-presets`, `piproof`, `passport`, `escrow`, `pfloor`, `court` | L0–L1 |
 | L3 | application | `dispute`, `sdk`, `attacks`, `engagement`, `dashboard` | L0–L2 |
 | L4 | presentation | `cli`, `app/server` | L0–L3 |
 

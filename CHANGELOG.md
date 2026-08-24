@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-24
+
+### Added — the Arbitration Court: decentralized, verifiable adjudication
+
+The Dispute Engine's honest disclaimer — *no judge quorum, no challenge
+periods, no arbitration market, no on-chain settlement* — becomes an honest
+implementation of exactly those things.
+
+- **`src/court.js` (L2)**: judge roster (Ed25519 keys + stake +
+  capabilities), weighted quorum tallies over signed ballots, evidence
+  windows, challenge periods, multi-signature settlement certificates,
+  reputation-weighted arbitration market with deterministic panel
+  assignment, and `replayArbitration()` — trustless auditability where a
+  mutating re-tally is structurally impossible (`computeTally` is pure;
+  v0.18 tests pin this because the impure version silently laundered
+  tampered tallies).
+- **AI agent division**: AI referees submit signed advisory opinions that
+  are recorded as evidence and hash-pinned into settlements — but a
+  referee key can never vote. **AI argues; keys decide**, enforced by the
+  capability system, not by policy.
+- **Settlement certificates** (`AUREVIA-Court-Settlement/1`): one signature
+  per panel judge over canonical certificate bytes; full tally proof inside;
+  byte-deterministic anchor payloads (tested for pre-commitment) with an
+  explicit adapter contract for chain broadcasting.
+- **Surfaces**: `/court` live UI (strict CSP) with one-click scenario ·
+  `/api/court/{state,demo-case,file,ballot,settle}` · `pep court-demo` CLI
+  walkthrough.
+- **Normative spec** — [docs/COURT.md](docs/COURT.md): what "decentralized"
+  means here precisely (no single point of decision; judges are keys;
+  anyone can replay), lifecycle state machine, tally rules, market rules,
+  every error and replay-difference code.
+
+### Governance
+
+Layer map extended: `court.js` classified L2
+(`scripts/check-layers.mjs`). New suites `test/court.test.js` (9 tests)
+and court integration test in `app/app.test.js`.
+
+### Verification
+
+149 tests green · layers clean (26 modules / 72 edges) · tamper-evidence
+pinned by test (flipped ballot → named difference) · multi-sig settlement
+reproduced identically on replay · attack matrix unchanged.
+
 ## [0.17.0] - 2026-08-24
 
 ### Added — public verification gateway & the privacy phase

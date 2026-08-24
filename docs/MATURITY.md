@@ -16,7 +16,7 @@ should be read as claiming otherwise. The distinction is the product.
 
 | Level | Status | Evidence held |
 |---|---|---|
-| Cryptographic reference implementation | ✅ **held** | 132 tests, 20/20 named attacks rejected, byte-reproducible vectors, two independent implementations (Node + Python) agreeing on Ed25519 *and* canonicalization |
+| Cryptographic reference implementation | ✅ **held** | 154 tests, 20/20 named attacks rejected, byte-reproducible vectors, four independent verification implementations (Node + Python + Go + pure-JS) agreeing on Ed25519 *and* canonicalization |
 | Security-engineering prototype | ✅ **held** | frozen PEP/1 core, fail-closed posture everywhere, supply-chain pinning, zero runtime dependencies, documented trust boundaries & audit-status honesty; property-based + differential fuzzing suite; layer-governance checker; engineering formal model (docs/FORMAL_MODEL.md); liveness-aware cross-process nonce locking |
 | Production protocol infrastructure | ❌ **not claimed, not yet evidenced** | see the missing-evidence register below |
 
@@ -40,6 +40,7 @@ Each row names the claim we REFUSE to make until the evidence column is real.
 | 12 | Production deployment at meaningful scale | real applications relying on verdicts | none |
 | 13 | Independent third-party implementation | a language/stack outside Node+Python reproducing all interop vectors and passing the fuzz property suite, maintained by someone else | **partially held (v0.16)**: a third from-scratch Go implementation (`sdk/go`) passes the full conformance matrix — proving the spec is reimplementable; *author-independence* remains the open half |
 | 14 | Mechanized verification | TLA+/Alloy model of the G1–G9 pipeline checked against INV-01…INV-12 | **partially held (v0.16.1)**: `formal/piproof_gates.tla` is **model-checked by TLC on every push/PR** (CI job `formal-tlc`, checksum-pinned tla2tools v1.7.4): the complete 122-state space passes with INV-04/INV-05 + TypeOK/AcceptImpliesBurn holding; coverage beyond this subset toward INV-01…12 remains open |
+| 15 | Decentralized dispute resolution | judge quorum, challenge periods, arbitration market, settlement anchoring — each real, replayable, and tamper-evident | **partially held (v0.18)**: the Arbitration Court implements all four mechanically ([docs/COURT.md](COURT.md)) — judges are keys with stakes & fees, verdicts are panel multi-signatures over exact tallies, challenges ARE replays, anchor certificates are byte-deterministic; what remains honest-open: stakes/fees are declared commitments (no token escrow), no chain broadcast ships in-repo (adapter contract only), and judge admission is a registry act, not an open market of humans |
 
 ## Language rules for anyone presenting this project
 
