@@ -10,6 +10,8 @@ import { createPassport, verifyPassport } from './passport.js';
 import { buildDisputeReport } from './dispute.js';
 import { createRegistry, registerApp, registerKey, revokeKey, markEligible } from './registry.js';
 import { verifySignedEvent } from './verify.js';
+import { createVerifier, formatDecision } from './sdk.js';
+import { listPolicyPresets } from './policy-presets.js';
 
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
@@ -145,6 +147,9 @@ Commands:
                   [--nonces nonces.jsonl] [--now <unix-ms>]
   dispute       --doc passport-or-proof.json [--registry registry.json] [--policy policy.json]
                 [--nonces nonces.jsonl] [--now <unix-ms>] [--out dispute-report.json]
+  decide        --proof proof.json --registry registry.json [--policy <preset|file>]
+                [--nonces nonces.jsonl] [--now <unix-ms>]
+  policies      list the frozen named policy presets (v0.14)
   attacks      run the full adversarial suite
   demo         end-to-end walkthrough
 
@@ -368,6 +373,46 @@ function cmdDispute(flags, posArg) {
   process.exitCode = report.verdict === 'VALID' ? 0 : report.verdict === 'INVALID' ? 1 : 2;
 }
 
+function cmdPolicies() {
+  console.log(`${BOLD}Named Trust Policy presets${RESET} · ${DIM}version 1 · code-frozen${RESET}\n`);
+  for (const p of listPolicyPresets()) {
+    console.log(` ${GREEN}●${RESET} ${BOLD}${p.name}${RESET}`);
+    console.log(`   ${DIM}${p.description}${RESET}`);
+    console.log(`   ${DIM}rules: ${JSON.stringify(p.rules)}${RESET}`);
+  }
+  console.log(`\nUse with: ${DIM}pep decide --proof proof.json --registry registry.json --policy merchant-verification-v1${RESET}`);
+}
+
+function cmdDecide(flags, posArg) {
+  const file = flags.proof ?? flags.passport ?? posArg;
+  if (!file) {
+    console.error('decide requires --proof <file> (or a positional file)');
+    process.exitCode = 2;
+    return;
+  }
+  let policyRef = null;
+  if (flags.policy) {
+    const asStr = String(flags.policy);
+    policyRef = fs.existsSync(asStr) ? readJson(asStr) : asStr;
+  }
+  const registry = readJson(flags.registry);
+  const nonceStore = flags.nonces ? new FileNonceStore(flags.nonces) : new InMemoryNonceStore();
+  const now = flags.now ? Number(flags.now) : Date.now();
+  const verifier = createVerifier({ registry, nonceStore, now });
+  const doc = readJson(file);
+  const decision = verifier.decide(doc, { policy: policyRef });
+  for (const s of decision.result.steps ?? []) {
+    const mark = s.pass === false ? `${RED} ✗ ${RESET}` : `${GREEN} ✓ ${RESET}`;
+    console.log(` ${mark} ${s.label ?? s.check ?? ''}${s.detail ? `  ${DIM}(${s.detail})${RESET}` : ''}`);
+  }
+  console.log('');
+  console.log(decision.decision === 'ALLOW'
+    ? `${BOLD}${GREEN}DECISION: ALLOW${RESET}`
+    : `${BOLD}${RED}DECISION: DENY${RESET}`);
+  console.log(`${DIM}${formatDecision(decision)}${RESET}`);
+  process.exitCode = decision.ok ? 0 : 1;
+}
+
 function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const command = positional[0];
@@ -385,6 +430,8 @@ function main() {
     case 'passport-create': return cmdPassportCreate(flags);
     case 'passport-verify': return cmdPassportVerify(flags, positional[1]);
     case 'dispute': return cmdDispute(flags, positional[1]);
+    case 'decide': return cmdDecide(flags, positional[1]);
+    case 'policies': return cmdPolicies();
     case 'attacks': {
       const results = runAttackSuite();
       console.log(formatAttackReport(results));
