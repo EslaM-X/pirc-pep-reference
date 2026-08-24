@@ -94,7 +94,7 @@ It implements exactly what was discussed there, nothing more:
 | 🌍 | **Cross-language verification** | every vector re-verified by an independent pure-Python Ed25519 verifier; the canonicalization profile has its own 16-vector interop suite agreed across Node, Python, and Go implementations |
 | ✅ | **Conformance suite** *(v0.16)* | one command (`npm run conformance`) runs the normative compatibility matrix across all implementations — [docs/CONFORMANCE.md](docs/CONFORMANCE.md) |
 | 🧠 | **Go protocol core** *(v0.16)* | from-scratch third implementation: canonicalization v1.1, closed schema, G1–G9 pipeline, RFC 8032 via `crypto/ed25519` — proof the spec alone is enough to reimplement |
-| 📐 | **TLA+ model** *(v0.16)* | machine-checkable fragment of the formal model: racing verifiers, atomic nonce claim, INV-04/INV-05 as TLC invariants ([formal/](formal/)) |
+| 📐 | **TLA+ model, TLC-checked in CI** *(v0.16.1)* | the stateful core of the formal model — racing verifiers, atomic nonce claim — verified by TLC over its complete 122-state space on every push: INV-04/INV-05 hold ([formal/](formal/)) |
 | 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment; honest binding aggregation (`EPOCH_BOUND` / `LOCAL` / `MIXED`) |
 | 📌 | **Binding classes** *(v0.13)* | every proof is explicitly `EPOCH_BOUND` (pinned to one registry generation) or `LOCAL` (verifies against whatever trusted copy the verifier supplies); policies can require epoch pinning via `require_epoch_bound` |
 | ⚖️ | **Dispute Engine** | **deterministic evidence adjudication layer** — claim→verdict chain, three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass. Not a decentralized arbitration protocol, and never described as one |
@@ -302,7 +302,7 @@ piproof/
 │   ├── FORMAL_MODEL.md              ★ engineering formal model — gates, 12 invariants, failure semantics (v0.15)
 │   ├── CONFORMANCE.md               ★ normative since v0.16: how to claim "PiProof compatible"
 │   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
-├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify
+├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify + Go conformance + TLC model check
 ├── SPEC.md             normative specification
 ├── SECURITY.md         threat model & explicit limitations
 └── TRACEABILITY.md     PR #2 requirement ↔ code ↔ test ↔ attack mapping
@@ -580,6 +580,7 @@ themselves.
 | XII | `v0.14` | **developer layer**: JS SDK (`createVerifier().decide()`), independent pure-Python SDK, named frozen policy presets callable by name, one-call Decision API (`POST /api/decide`) sharing replay state, preset-aware verify endpoints, self-contained `piproof://v1?p=…` proof links | ✅ shipped |
 | XV | `v0.15` | **adversarial depth & formal structure**: property+differential fuzzing suite (found & fixed a real canonicalization idempotence bug — Profile v1.1 NFC-form sort), layer-governance checker (`scripts/check-layers.mjs`), liveness-aware nonce-lock ownership (live-PID locks never stolen), engineering formal model with 12 invariants (`docs/FORMAL_MODEL.md`), disclosed V8 `JSON.parse` divergence finding ([SECURITY.md](SECURITY.md)) | ✅ shipped |
 | XVI | `v0.16` | **third implementation & conformance**: from-scratch Go protocol core (`sdk/go`) passing the full conformance matrix (16 canonical vectors + valid event + 20 attacks with exact codes), normative conformance suite (`npm run conformance`, [docs/CONFORMANCE.md](docs/CONFORMANCE.md)), TLA+ model of the stateful gate core with INV-04/INV-05 as TLC invariants (`formal/`), Unicode-facts corrections to the v1.1 vector story + new discriminator vector `canon-016` | ✅ shipped |
+| XVII | `v0.16.1` | **mechanized verification live**: CI job `formal-tlc` runs TLC on the gate model every push/PR (checksum-pinned tla2tools v1.7.4, Temurin 21) — 122-state space verified; first machine run caught and fixed two real modeling flaws | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
