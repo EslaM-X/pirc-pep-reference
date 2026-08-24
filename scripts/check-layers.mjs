@@ -49,7 +49,8 @@ const L = {
       'piproof.js',         // proofs, envelopes, epoch binding
       'passport.js',        // evidence passports
       'escrow.js',          // conditional-release escrows
-      'pfloor.js'           // participation floor checks
+      'pfloor.js',          // participation floor checks
+      'court.js'            // decentralized verifiable arbitration (v0.18)
     ]
   },
   // L3 — application & adversarial layer: products built on the protocol.

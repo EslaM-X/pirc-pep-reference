@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, sign as cryptoSign, createPrivateKey } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -7,7 +7,7 @@ import { makeWorld, SUITE_UID_SECRET } from '../src/attacks.js';
 import { hashUid, newEvent, signEvent } from '../src/events.js';
 import { InMemoryNonceStore } from '../src/nonces.js';
 import { verifySignedEvent } from '../src/verify.js';
-import { markEligible, registerApp, registerKey } from '../src/registry.js';
+import { createRegistry, markEligible, registerApp, registerKey } from '../src/registry.js';
 import { generateKeyPair, randomNonce } from '../src/keys.js';
 import { createRevocationAttestation } from '../src/escrow.js';
 import { assembleSnapshot } from '../src/dashboard.js';
@@ -17,6 +17,11 @@ import { buildDisputeReport as disputeReport } from '../src/dispute.js';
 import { createMetricsRegistry, timed } from '../src/observability.js';
 import { listPolicyPresets, resolvePolicy } from '../src/policy-presets.js';
 import { createVerifier, toProofUri } from '../src/sdk.js';
+import {
+  initCourt, registerJudge, setFeeBook, fileCase, submitEvidence,
+  openDeliberation, castBallot, tallyRound, openChallengeWindow,
+  settleCase, replayArbitration, marketSnapshot
+} from '../src/court.js';
 
 /** Resolve a request-supplied policy reference; throws on unknown presets. */
 function effectivePolicy(ref) {
@@ -73,8 +78,92 @@ const METRICS = createMetricsRegistry();
 const SHARE_LIMIT = 5_000;
 const SHARE_MAP = new Map();
 const SHARE_ID_RE = /^[0-9a-f]{12}$/;
+
+// ---------------------------------------------------------------------------
+// v0.18 — AUREVIA Arbitration Court: persistent in-process court world.
+// Judge keys are deterministic (seeded) so restarts reproduce the roster.
+// The server signs ballots ON BEHALF of judge keys for this demo host only —
+// in a real deployment each judge key lives with its human/agent owner.
+// ---------------------------------------------------------------------------
+const COURT_REG = (() => {
+  const reg = createRegistry();
+  initCourt(reg);
+  const privs = {};
+  for (const [id, seed] of [['judge-ada', 0x11], ['judge-boole', 0x22], ['judge-cantor', 0x33]]) {
+    const kp = generateKeyPair({ seed: Buffer.alloc(32, seed) });
+    registerJudge(reg, id, kp.public_key_pem, { now: Date.now(), stake: 5 });
+    setFeeBook(reg, id, {
+      general_dispute: id === 'judge-ada' ? 150 : id === 'judge-cantor' ? 175 : 200,
+      agent_dispute: id === 'judge-boole' ? 200 : id === 'judge-ada' ? 250 : 300
+    });
+    privs[id] = kp.private_key_pem;
+  }
+  const refereeKp = generateKeyPair({ seed: Buffer.alloc(32, 0x44) });
+  registerJudge(reg, 'referee-tesla', refereeKp.public_key_pem, { now: Date.now(), capabilities: ['referee'] });
+  privs['referee-tesla'] = refereeKp.private_key_pem;
+  return { reg, privs };
+})();
+
+const COURT_SIGNERS = Object.fromEntries(Object.entries(COURT_REG.privs).map(([id, pem]) => [id,
+  (msg) => cryptoSign(null, msg, createPrivateKey(pem)
+)]));
+const COURT_CASES = new Map();
+const COURT_CASES_LIMIT = 200;
+
+function courtSummary(c) {
+  return {
+    case_id: c.case_id,
+    division: c.division,
+    parties: c.parties,
+    status: c.status,
+    provisional_outcome: c.provisional_outcome ?? null,
+    rounds: c.rounds.map((r) => ({ round: r.round, ballots: r.ballots.length, tally: r.tally })),
+    referee_opinions: c.referee_opinions.length,
+    settlement: c.settlement
+      ? {
+          verdict: c.settlement.certificate.verdict,
+          signatures: c.settlement.certificate.signatures.length,
+          total_fees: c.settlement.certificate.fees.total,
+          anchor_payload: c.settlement.certificate.anchor_payload
+        }
+      : null,
+    replay: replayArbitration(COURT_REG.reg, c),
+    history: c.history
+  };
+}
+
+function runCourtDemoCase({ plaintiff = 'buyer-alice', defendant = 'merchant-mall' } = {}) {
+  const now = Date.now();
+  const c = fileCase(COURT_REG.reg, {
+    division: 'general', plaintiff, defendant,
+    disputeReport: { type: 'AUREVIA-Dispute-Report', verdict: 'INVALID', subject: `order-${now % 100000}` }
+  }, now);
+  submitEvidence(c, { submitter: defendant, kind: 'statement', payload: { text: 'service delivered; logs attached' } }, now + 1);
+  openDeliberation(COURT_REG.reg, c, now + 2);
+  const votes = [['judge-ada', 'AFFIRM'], ['judge-boole', 'AFFIRM'], ['judge-cantor', 'REVERSE']];
+  for (const [id, verdict] of votes) {
+    castBallot(COURT_REG.reg, c, { judge_id: id, verdict, reasons: { basis: 'demo scenario' } }, { sign: COURT_SIGNERS[id], now: now + 3 });
+  }
+  const tally = tallyRound(COURT_REG.reg, c);
+  openChallengeWindow(COURT_REG.reg, c, now + 4);
+  const cert = settleCase(COURT_REG.reg, c, { signers: COURT_SIGNERS, now: now + 5 });
+  COURT_CASES.set(c.case_id, c);
+  return { summary: courtSummary(c), tally_outcome: tally.outcome, certificate: cert };
+}
 const b64u = (buf) => Buffer.from(buf).toString('base64')
   .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+/** Read and parse a bounded JSON request body. */
+async function readJsonBody(req) {
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 262_144) {
+      throw Object.assign(new Error('body too large'), { code: 'BODY_TOO_LARGE' });
+    }
+  }
+  return JSON.parse(raw || '{}');
+}
 
 export function makeSampleProof(now = Date.now()) {
   const event = newEvent({
@@ -599,6 +688,120 @@ export function createAppServer() {
         return;
       }
 
+      // ------------------------------------------------------------------
+      // v0.18 — AUREVIA Arbitration Court API.
+      // Demo authority note: this host holds the judge keys to make the
+      // lifecycle clickable; a real deployment keeps each key with its
+      // owner and collects signed ballots instead.
+      // ------------------------------------------------------------------
+      if (url.pathname === '/api/court/state') {
+        res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+        res.end(JSON.stringify({
+          config: COURT_REG.reg.court.config,
+          judges: Object.fromEntries(Object.entries(COURT_REG.reg.court.judges).map(([id, j]) => [id, {
+            capabilities: j.capabilities, stake: j.stake, reputation: j.reputation, status: j.status
+          }])),
+          market: marketSnapshot(COURT_REG.reg, COURT_CASES.size),
+          cases: [...COURT_CASES.values()].map(courtSummary)
+        }, null, 2));
+        return;
+      }
+
+      if (url.pathname === '/api/court/demo-case' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const run = runCourtDemoCase(body ?? {});
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(JSON.stringify(run, null, 2));
+        } catch (e) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: e.code ?? e.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/api/court/file' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const now = Date.now();
+          const c = fileCase(COURT_REG.reg, {
+            division: body.division === 'agent' ? 'agent' : 'general',
+            plaintiff: String(body.plaintiff ?? 'anonymous-plaintiff').slice(0, 64),
+            defendant: String(body.defendant ?? 'anonymous-defendant').slice(0, 64),
+            disputeReport: { type: 'AUREVIA-Dispute-Report', verdict: 'INVALID', subject: String(body.subject ?? '').slice(0, 64) }
+          }, now);
+          if (body.evidence) submitEvidence(c, { submitter: c.parties.plaintiff, kind: 'statement', payload: { text: String(body.evidence).slice(0, 500) } }, now + 1);
+          openDeliberation(COURT_REG.reg, c, now + 2);
+          COURT_CASES.set(c.case_id, c);
+          if (COURT_CASES.size > COURT_CASES_LIMIT) {
+            COURT_CASES.delete(COURT_CASES.keys().next().value);
+          }
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(JSON.stringify({ case_id: c.case_id, summary: courtSummary(c) }, null, 2));
+        } catch (e) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: e.code ?? e.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/api/court/ballot' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const c = COURT_CASES.get(String(body.case_id ?? ''));
+          if (!c) throw Object.assign(new Error('CASE_UNKNOWN'), { code: 'CASE_UNKNOWN' });
+          const signFn = COURT_SIGNERS[String(body.judge_id)];
+          if (!signFn) throw Object.assign(new Error('JUDGE_UNKNOWN'), { code: 'JUDGE_UNKNOWN' });
+          castBallot(COURT_REG.reg, c, {
+            judge_id: String(body.judge_id),
+            verdict: ['AFFIRM', 'REVERSE', 'ABSTAIN'].includes(body.verdict) ? body.verdict : 'ABSTAIN',
+            reasons: { basis: String(body.reasons ?? 'panel deliberation').slice(0, 200) }
+          }, { sign: signFn });
+          // Auto-tally once every panel judge has voted.
+          let tally = null;
+          if (c.rounds[c.rounds.length - 1].ballots.length >= COURT_REG.reg.court.config.quorum_min_judges) {
+            tally = tallyRound(COURT_REG.reg, c);
+            if (tally.outcome !== 'QUORUM_FAILED' && tally.outcome !== 'NO_MAJORITY') {
+              openChallengeWindow(COURT_REG.reg, c);
+            } else {
+              openChallengeWindow(COURT_REG.reg, c); // resolves honestly to UNRESOLVED
+            }
+          }
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(JSON.stringify({ summary: courtSummary(c), tally }, null, 2));
+        } catch (e) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: e.code ?? e.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/api/court/settle' && req.method === 'POST') {
+        try {
+          const body = await readJsonBody(req);
+          const c = COURT_CASES.get(String(body.case_id ?? ''));
+          if (!c) throw Object.assign(new Error('CASE_UNKNOWN'), { code: 'CASE_UNKNOWN' });
+          const cert = settleCase(COURT_REG.reg, c, { signers: COURT_SIGNERS });
+          res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+          res.end(JSON.stringify({ certificate: cert, summary: courtSummary(c) }, null, 2));
+        } catch (e) {
+          res.writeHead(400, { 'content-type': MIME['.json'] });
+          res.end(JSON.stringify({ error: e.code ?? e.message }));
+        }
+        return;
+      }
+
+      if (url.pathname === '/court' || url.pathname === '/court.html') {
+        const html = await readFile(path.join(ROOT, 'court.html'));
+        res.writeHead(200, {
+          'content-type': MIME['.html'],
+          'content-security-policy':
+            "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+        });
+        res.end(html);
+        return;
+      }
+
       if (url.pathname === '/verify' || url.pathname === '/verify.html') {
         const html = await readFile(path.join(ROOT, 'verify.html'));
         res.writeHead(200, { 'content-type': MIME['.html'] });
@@ -619,7 +822,9 @@ export function createAppServer() {
         'web-ed25519.js': path.join(path.dirname(ROOT), 'src', 'web-ed25519.js'),
         'offline-verifier.js': path.join(path.dirname(ROOT), 'src', 'offline-verifier.js'),
         'gateway.app.mjs': path.join(ROOT, 'gateway.app.mjs'),
-        'gateway.css': path.join(ROOT, 'gateway.css')
+        'gateway.css': path.join(ROOT, 'gateway.css'),
+        'court.app.mjs': path.join(ROOT, 'court.app.mjs'),
+        'court.css': path.join(ROOT, 'court.css')
       });
 
       if (url.pathname === '/registry.json') {

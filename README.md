@@ -96,6 +96,7 @@ It implements exactly what was discussed there, nothing more:
 | 🧠 | **Go protocol core** *(v0.16)* | from-scratch third implementation: canonicalization v1.1, closed schema, G1–G9 pipeline, RFC 8032 via `crypto/ed25519` — proof the spec alone is enough to reimplement |
 | 📐 | **TLA+ model, TLC-checked in CI** *(v0.16.1)* | the stateful core of the formal model — racing verifiers, atomic nonce claim — verified by TLC over its complete 122-state space on every push: INV-04/INV-05 hold ([formal/](formal/)) |
 | 🔒 | **Offline verification gateway** *(v0.17)* | `/gateway` runs the full pipeline in the visitor's browser on a from-scratch pure-JS Ed25519+SHA-512 core — the document never leaves the tab, under a strict CSP; honest gold rows for what offline cannot know ([docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md)) |
+| ⚖️ | **Decentralized Arbitration Court** *(v0.18)* | judges are keys with stake and published fees; verdicts exist only as panel multi-signatures over the exact tally; challenge periods where a challenge IS a replay; an AI division where AI referees argue but can never vote; anchor-ready settlement certificates ([docs/COURT.md](docs/COURT.md), live at `/court`) |
 | 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment; honest binding aggregation (`EPOCH_BOUND` / `LOCAL` / `MIXED`) |
 | 📌 | **Binding classes** *(v0.13)* | every proof is explicitly `EPOCH_BOUND` (pinned to one registry generation) or `LOCAL` (verifies against whatever trusted copy the verifier supplies); policies can require epoch pinning via `require_epoch_bound` |
 | ⚖️ | **Dispute Engine** | **deterministic evidence adjudication layer** — claim→verdict chain, three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass. Not a decentralized arbitration protocol, and never described as one |
@@ -249,6 +250,7 @@ piproof/
 │   ├── policy.js        Trust Policy Engine — post-crypto acceptance (v0.7)
 │   ├── passport.js      ★ AUREVIA-Evidence-Passport/1 (v0.8)
 │   ├── dispute.js       ★ Dispute Engine — claim→verdict chain (v0.9)
+│   ├── court.js         ★ Arbitration Court — decentralized verifiable adjudication (v0.18)
 │   ├── attacks.js       the adversarial suite
 │   └── cli.js           keygen / init-reg / sign / verify / proof-* / passport-* / dispute
 ├── app/
@@ -256,6 +258,7 @@ piproof/
 │   ├── server.mjs       Node host: snapshot + sample/issue/verify/dispute APIs
 │   │                    + /gateway offline verification + security headers + healthz (v0.17)
 │   ├── verify.html      public verification page (/verify#p=<document>)
+│   ├── court.html       ★ Arbitration Court UI — run a full case, watch the multi-sig settle (v0.18)
 │   ├── gateway.html     ★ zero-disclosure offline gateway — CSP-locked, client-side crypto (v0.17)
 │   ├── gateway.app.mjs  ★ gateway logic module (strict CSP: no inline script) (v0.17)
 │   └── gateway.css      gateway styling (v0.17)
@@ -590,6 +593,7 @@ themselves.
 | XVI | `v0.16` | **third implementation & conformance**: from-scratch Go protocol core (`sdk/go`) passing the full conformance matrix (16 canonical vectors + valid event + 20 attacks with exact codes), normative conformance suite (`npm run conformance`, [docs/CONFORMANCE.md](docs/CONFORMANCE.md)), TLA+ model of the stateful gate core with INV-04/INV-05 as TLC invariants (`formal/`), Unicode-facts corrections to the v1.1 vector story + new discriminator vector `canon-016` | ✅ shipped |
 | XVII | `v0.16.1` | **mechanized verification live**: CI job `formal-tlc` runs TLC on the gate model every push/PR (checksum-pinned tla2tools v1.7.4, Temurin 21) — 122-state space verified; first machine run caught and fixed two real modeling flaws | ✅ shipped |
 | XVIII | `v0.17` | **public gateway & privacy phase**: zero-disclosure offline verification (`/gateway`) — full G1–G9 pipeline in the visitor's browser over a from-scratch pure-JS Ed25519+SHA-512 core (cross-checked against node:crypto in tests), strict CSP, security headers + healthz on the host, public registry export with displayed SHA-256 fingerprint, normative privacy model ([docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md)) | ✅ shipped |
+| XIX | `v0.18` | **decentralized arbitration**: the Dispute Engine's honest disclaimer becomes an honest implementation — judge roster with stakes & capabilities, weighted quorum tallies (pure re-computation, tamper-evident replay), challenge periods where challenging IS replaying, reputation-weighted fee market with deterministic panel assignment, AI agent division under "AI argues; keys decide", multi-signed anchor certificates ready for chain adapters ([docs/COURT.md](docs/COURT.md), `pep court-demo`, live UI at `/court`) | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { generateKeyPairSync, sign as edSign } from 'node:crypto';
 import { formatAttackReport, runAttackSuite, makeWorld } from './attacks.js';
 import { hashUid, newEvent, signEvent } from './events.js';
 import { generateKeyPair } from './keys.js';
@@ -8,6 +9,12 @@ import { InMemoryNonceStore, FileNonceStore } from './nonces.js';
 import { verifyPiProof, toPiProof } from './piproof.js';
 import { createPassport, verifyPassport } from './passport.js';
 import { buildDisputeReport } from './dispute.js';
+import {
+  initCourt, registerJudge, revokeJudge, setFeeBook,
+  fileCase, submitEvidence, openDeliberation, castBallot,
+  submitRefereeOpinion, tallyRound, openChallengeWindow,
+  settleCase, replayArbitration, marketSnapshot
+} from './court.js';
 import { createRegistry, registerApp, registerKey, revokeKey, markEligible } from './registry.js';
 import { verifySignedEvent } from './verify.js';
 import { createVerifier, formatDecision } from './sdk.js';
@@ -152,6 +159,7 @@ Commands:
   policies      list the frozen named policy presets (v0.14)
   attacks      run the full adversarial suite
   demo         end-to-end walkthrough
+  court-demo   full arbitration scenario — judges, quorum, challenge, AI referee, multi-sig settlement
 
 PiProof: a portable envelope around one signed PEP/1 event. Any party holding
 the proof + the verifier's own registry copy can independently confirm every
@@ -228,6 +236,75 @@ function cmdVerify(flags) {
   const result = verifySignedEvent(event, { registry, nonceStore, now });
   printVerifyResult(result);
   process.exitCode = result.ok ? 0 : 1;
+}
+
+function cmdCourtDemo() {
+  const T0 = Date.now();
+  const MIN = 60_000;
+
+  console.log(`${BOLD}AUREVIA Arbitration Court — scripted scenario${RESET}`);
+  console.log(`${DIM}decentralized verifiable arbitration: judges are keys, verdicts are multisig, every ruling replays${RESET}\n`);
+
+  const reg = createRegistry();
+  initCourt(reg);
+  const signers = {};
+  const mk = (id, opts) => {
+    const kp = generateKeyPairSync('ed25519');
+    registerJudge(reg, id, kp.publicKey.export({ type: 'spki', format: 'pem' }), { now: T0, ...opts });
+    signers[id] = (msg) => edSign(null, msg, kp.privateKey);
+  };
+  for (const id of ['judge-ada', 'judge-boole', 'judge-cantor']) mk(id, { stake: 5 });
+  mk('referee-tesla', { capabilities: ['referee'] });
+  setFeeBook(reg, 'judge-ada', { general_dispute: 150, agent_dispute: 250 });
+  setFeeBook(reg, 'judge-boole', { general_dispute: 200, agent_dispute: 200 });
+  setFeeBook(reg, 'judge-cantor', { general_dispute: 175, agent_dispute: 300 });
+
+  console.log(`${DIM}[1] judge roster — keys with stake + published fee books${RESET}`);
+  for (const [id, j] of Object.entries(reg.court.judges)) {
+    console.log(`   ${GREEN}✓${RESET} ${id.padEnd(14)} stake=${j.stake} caps=[${j.capabilities.join(',')}]`);
+  }
+  console.log(`   market clearing: ${JSON.stringify(marketSnapshot(reg, 1).clearing.general_dispute)}\n`);
+
+  const c = fileCase(reg, {
+    plaintiff: 'buyer-alice',
+    defendant: 'merchant-mall',
+    disputeReport: { type: 'AUREVIA-Dispute-Report', verdict: 'INVALID', subject: 'order-7712' }
+  }, T0);
+  submitEvidence(c, { submitter: 'defendant', kind: 'statement', payload: { text: 'service delivered; logs attached' } }, T0 + MIN);
+  openDeliberation(reg, c, T0 + 2 * MIN);
+
+  console.log(`${DIM}[2] case filed:${RESET} ${BOLD}${c.case_id}${RESET}`);
+  console.log(`${DIM}[3] deliberation round 1 — ballots are signed attestations over the exact tally${RESET}`);
+
+  castBallot(reg, c, { judge_id: 'judge-ada', verdict: 'AFFIRM', reasons: { basis: 'signature chain valid' } }, { sign: signers['judge-ada'], now: T0 + 3 * MIN });
+  castBallot(reg, c, { judge_id: 'judge-boole', verdict: 'AFFIRM', reasons: { basis: 'policy satisfied' } }, { sign: signers['judge-boole'], now: T0 + 4 * MIN });
+  castBallot(reg, c, { judge_id: 'judge-cantor', verdict: 'REVERSE', reasons: { basis: 'timestamp anomaly' } }, { sign: signers['judge-cantor'], now: T0 + 5 * MIN });
+
+  try {
+    castBallot(reg, c, { judge_id: 'referee-tesla', verdict: 'AFFIRM', reasons: {} }, { sign: signers['referee-tesla'], now: T0 + 6 * MIN });
+  } catch (e) {
+    console.log(`   ${RED}✗${RESET} AI referee tried to vote → rejected: ${e.code}  ${DIM}(AI argues, keys decide)${RESET}`);
+  }
+  submitRefereeOpinion(reg, c, {
+    referee_id: 'referee-tesla',
+    opinion: { summary: 'evidence supports AFFIRM', confidence_pct: 91 }
+  }, { sign: signers['referee-tesla'], now: T0 + 7 * MIN });
+  console.log(`   ${GREEN}✓${RESET} signed advisory opinion recorded as evidence only\n`);
+
+  const tally = tallyRound(reg, c);
+  console.log(`${DIM}[4] deterministic tally:${RESET} outcome=${tally.outcome} weights=A:${tally.weights.AFFIRM}/R:${tally.weights.REVERSE} quorum_met=${tally.quorum.met}\n`);
+
+  openChallengeWindow(reg, c, T0 + 8 * MIN);
+  const cert = settleCase(reg, c, { signers, now: T0 + 9 * MIN });
+  console.log(`${DIM}[5] settlement — multi-signature anchor certificate over the exact tally bytes${RESET}`);
+  console.log(`   signatures: ${cert.signatures.map((s) => s.judge_id).join(', ')}`);
+  console.log(`   fees total: ${cert.fees.total} (integer units, canonical-safe)`);
+  console.log(`   anchor: ${cert.anchor_payload.network} ← ${cert.anchor_payload.payload.slice(0, 72)}…\n`);
+
+  const replay = replayArbitration(reg, c);
+  console.log(replay.matches
+    ? `${GREEN}${BOLD}REPLAY: every signature verified, every tally recomputed identically — trustless ✓${RESET}`
+    : `${RED}${BOLD}REPLAY FAILED: ${replay.differences.join(', ')}${RESET}`);
 }
 
 function cmdDemo() {
@@ -439,6 +516,7 @@ function main() {
       return;
     }
     case 'demo': return cmdDemo();
+    case 'court-demo': return cmdCourtDemo();
     default:
       console.log(HELP);
       process.exitCode = command ? 1 : 0;

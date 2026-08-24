@@ -240,3 +240,51 @@ test('share API issues short /p/<id> links that redirect to verifiable documents
     server.close();
   }
 });
+
+test('arbitration court: page CSP, roster state, full scenario settles with multi-sig + clean replay', async () => {
+  const server = createAppServer();
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const page = await fetch(`${base}/court`);
+    assert.equal(page.status, 200);
+    const csp = page.headers.get('content-security-policy') ?? '';
+    assert.match(csp, /default-src 'none'/);
+    assert.ok(!csp.includes('unsafe-inline'));
+
+    const state = await (await fetch(`${base}/api/court/state`)).json();
+    assert.equal(state.config.version ?? 1, 1);
+    assert.ok(state.judges['judge-ada']);
+    assert.equal(state.judges['referee-tesla'].capabilities[0], 'referee');
+    assert.ok(state.market.active_judges >= 3);
+
+    const run = await (
+      await fetch(`${base}/api/court/demo-case`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}'
+      })
+    ).json();
+    assert.equal(run.tally_outcome, 'AFFIRM');
+    assert.equal(run.certificate.signatures.length, 3);
+    assert.equal(run.summary.replay.matches, true);
+    assert.deepEqual(run.summary.replay.differences, []);
+    assert.equal(run.certificate.anchor_payload.network, 'pi-testnet');
+
+    // the settled case must appear in the public state with a matching replay
+    const st2 = await (await fetch(`${base}/api/court/state`)).json();
+    const settled = st2.cases.find((c) => c.case_id === run.summary.case_id);
+    assert.ok(settled);
+    assert.equal(settled.status, 'SETTLED');
+    assert.equal(settled.replay.matches, true);
+
+    const missing = await fetch(`${base}/api/court/settle`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ case_id: 'court-1:nope' })
+    });
+    assert.equal(missing.status, 400);
+  } finally {
+    server.close();
+  }
+});
