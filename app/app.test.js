@@ -99,6 +99,15 @@ test('PiProof explorer endpoints verify, replay-catch and enforce policy', async
     const malformed = await fetch(`${base}/api/verify-proof`, { method: 'POST', body: '{oops' });
     assert.equal(malformed.status, 400);
 
+    // observability: counters watched every verification above
+    const metrics = await (await fetch(`${base}/api/metrics`)).json();
+    assert.equal(metrics.schema, 'AUREVIA-Metrics/1');
+    const pv = metrics.kinds.proof_verify;
+    assert.equal(pv.total >= 3, true);
+    assert.ok(pv.rejection_codes.REPLAY_DETECTED >= 1);
+    assert.ok(pv.rejection_codes.INVALID_SIGNATURE >= 1);
+    assert.equal(typeof pv.latency_ms.p50, 'number');
+
     const html = await (await fetch(base + '/')).text();
     assert.match(html, /PiProof Explorer/);
   } finally {
@@ -115,6 +124,15 @@ test('share API issues short /p/<id> links that redirect to verifiable documents
   try {
     const sample = await (await fetch(`${base}/api/sample-passport`)).json();
     assert.equal(sample.passport.type, 'AUREVIA-Evidence-Passport');
+
+    const checked = await (
+      await fetch(`${base}/api/verify-passport`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ passport: sample.passport })
+      })
+    ).json();
+    assert.equal(checked.ok, true);
 
     const shared = await fetch(`${base}/api/share`, {
       method: 'POST',
@@ -138,7 +156,6 @@ test('share API issues short /p/<id> links that redirect to verifiable documents
 
     const missing = await fetch(`${base}/p/deadbeefdead`, { redirect: 'manual' });
     assert.equal(missing.status, 404);
-
     const malformedId = await fetch(`${base}/p/../../etc`, { redirect: 'manual' });
     assert.equal(malformedId.status, 404);
 
@@ -151,6 +168,10 @@ test('share API issues short /p/<id> links that redirect to verifiable documents
 
     const malformed = await fetch(`${base}/api/share`, { method: 'POST', body: '{oops' });
     assert.equal(malformed.status, 400);
+
+    const metrics = await (await fetch(`${base}/api/metrics`)).json();
+    assert.ok(metrics.kinds.share.total >= 1);
+    assert.ok(metrics.kinds.passport_verify.total >= 1);
   } finally {
     server.close();
   }

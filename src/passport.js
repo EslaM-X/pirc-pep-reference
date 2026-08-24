@@ -91,7 +91,15 @@ function envelopeError(passport) {
   return null;
 }
 
-export function verifyPassport(passport, { registry, nonceStore, now = Date.now(), policyOverride = null }) {
+import { timed } from './observability.js';
+
+export function verifyPassport(passport, opts = {}) {
+  const { metrics = null } = opts;
+  if (!metrics) return _verifyPassport(passport, opts);
+  return timed(metrics, 'passport_verify', () => _verifyPassport(passport, opts));
+}
+
+function _verifyPassport(passport, { registry, nonceStore, now = Date.now(), policyOverride = null }) {
   const steps = [];
   const step = (id, pass, detail = '') => steps.push({ id, label: STEP_LABELS[id] ?? id, pass, detail });
 
