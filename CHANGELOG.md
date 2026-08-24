@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-08-24
+
+### Added — mechanized verification goes live in CI
+
+MATURITY.md row #14 moves from "drafted" to **partially held**: the TLA+
+model is no longer hand-checked — TLC now runs it on every push and PR.
+
+- **New CI job `formal-tlc`** (ubuntu): Temurin 21 via pinned
+  `actions/setup-java@cf277c60…` + `tla2tools.jar` v1.7.4 verified against
+  the **official release SHA1** (`bee4a54f3e…`) before use; CI fails unless
+  TLC reports *"Model checking completed. No error has been found."*
+- **Verified result**: complete state space of 122 distinct states explored;
+  `TypeOK`, `AtMostOneAccept` (INV-04), `AcceptImpliesBurn`, and
+  `BurnOnlyOnPass` (INV-05) all hold.
+
+### Fixed — two real modeling flaws caught by the first machine run
+
+The first TLC execution earned its keep immediately:
+
+1. `EXTENDS Naturals` → `EXTENDS Integers`: unary minus (used by the
+   `REJ(g)` terminal encoding) is not defined in pure `Naturals`.
+2. The G8 environment choice was separable from its consequence — a
+   verifier could read a snapshot before the environment committed, and
+   TLC's deadlock analysis exposed the resulting stuck path. G8's choice
+   and outcome are now one atomic action, and clean termination is an
+   explicit `TerminalStutter` action — keeping deadlock detection armed for
+   genuinely stuck mid-pipeline states instead of disabling it with
+   `-deadlock`.
+
+formal/README.md documents both decisions and how to reproduce locally.
+
 ## [0.16.0] - 2026-08-24
 
 ### Added — third implementation & normative conformance

@@ -5,3 +5,5 @@ keys/
 nonces.jsonl
 __pycache__/
 *.pyc
+
+states/
