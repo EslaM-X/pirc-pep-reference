@@ -215,12 +215,6 @@ impl<'a> Parser<'a> {
     }
 
 
-    /// Scan a KEY string: decoded value, NFC-normalized (no re-encode; the
-    /// canonical encoding happens when members are emitted).
-    fn key_nfc(&mut self) -> Result<String, String> {
-        let decoded = self.string_decoded()?;
-        Ok(decoded.chars().nfc().collect())
-    }
 
     fn hex4(&mut self) -> Result<u32, String> {
         if self.i + 4 > self.b.len() {
@@ -260,6 +254,7 @@ impl<'a> Parser<'a> {
     fn object(&mut self) -> Result<String, String> {
         self.expect(b'{')?;
         let mut members: Vec<(String, String)> = Vec::new();
+        let mut raw_keys: Vec<String> = Vec::new();
         self.skip_ws();
         if self.peek() == Some(b'}') {
             self.i += 1;
@@ -268,15 +263,24 @@ impl<'a> Parser<'a> {
         loop {
             self.skip_ws();
             // keys are NFC-normalized before duplicate checks and ordering
-            let key_norm = self.key_nfc()?;
+            let key_raw = self.string_decoded()?;
+            let key_norm: String = key_raw.chars().nfc().collect();
             self.skip_ws();
             self.expect(b':')?;
             self.skip_ws();
             let val = self.value()?;
             if members.iter().any(|(k, _)| *k == key_norm) {
-                return Err(format!("duplicate object key: {}", key_norm));
+                if raw_keys.iter().any(|r| r == &key_raw) {
+                    return Err(format!("duplicate object key: {}", key_raw));
+                }
+                // same NFC form, different raw spellings
+                return Err(format!(
+                    'normalized key collision under NFC: "{}"',
+                    key_raw
+                ));
             }
             members.push((key_norm, val));
+            raw_keys.push(key_raw);
             self.skip_ws();
             match self.peek() {
                 Some(b',') => self.i += 1,
