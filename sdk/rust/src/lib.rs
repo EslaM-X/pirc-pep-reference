@@ -275,7 +275,7 @@ impl<'a> Parser<'a> {
                 }
                 // same NFC form, different raw spellings
                 return Err(format!(
-                    'normalized key collision under NFC: "{}"',
+                    "normalized key collision under NFC: \"{}\"",
                     key_raw
                 ));
             }
