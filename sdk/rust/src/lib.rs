@@ -74,8 +74,15 @@ impl<'a> Parser<'a> {
 
     fn number(&mut self) -> Result<String, String> {
         let start = self.i;
+        // Profile v1.1: non-negative safe integers only — a leading '-' is
+        // rejected with the reference wording (echoing the whole literal).
         if self.peek() == Some(b'-') {
             self.i += 1;
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                self.i += 1;
+            }
+            let text = std::str::from_utf8(&self.b[start..self.i]).unwrap();
+            return Err(format!("non-canonical number: {}", text));
         }
         // integer grammar: 0 | [1-9][0-9]* â€” no fractions, no exponents.
         match self.peek() {
