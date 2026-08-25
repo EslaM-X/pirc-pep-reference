@@ -1,7 +1,7 @@
-﻿//! Independent Rust verifier for the PiProof protocol.
+//! Independent Rust verifier for the PiProof protocol.
 //!
 //! Implements SPEC.md: Canonical JSON Profile v1.1 (std-only, lexical
-//! rules enforced exactly) + PEP/1 event verification (G1â€“G8; G9 reported
+//! rules enforced exactly) + PEP/1 event verification (G1"G8; G9 reported
 //! honestly as UNVERIFIABLE because this library is stateless).
 //!
 //! Conformance is proven against the repository's public vectors
@@ -11,7 +11,7 @@ use ed25519_dalek::{Signature, VerifyingKey, Verifier};
 
 /// Canonicalize raw JSON text per PiProof Canonical Profile v1.1.
 /// Errors carry the same prefixes as the reference implementation
-/// ("non-canonical number: â€¦", "unsupported type: â€¦") so conformance
+/// ("non-canonical number: ", "unsupported type: ") so conformance
 /// vectors can match on them.
 pub fn canonicalize(input: &str) -> Result<String, String> {
     let b = input.as_bytes();
@@ -74,17 +74,14 @@ impl<'a> Parser<'a> {
 
     fn number(&mut self) -> Result<String, String> {
         let start = self.i;
-        // Profile v1.1: non-negative safe integers only — a leading '-' is
+        let mut neg = false;
+        // Profile v1.1: non-negative safe integers only -- a leading '-' is
         // rejected with the reference wording (echoing the whole literal).
         if self.peek() == Some(b'-') {
+            neg = true;
             self.i += 1;
-            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
-                self.i += 1;
-            }
-            let text = std::str::from_utf8(&self.b[start..self.i]).unwrap();
-            return Err(format!("non-canonical number: {}", text));
         }
-        // integer grammar: 0 | [1-9][0-9]* â€” no fractions, no exponents.
+        // integer grammar: 0 | [1-9][0-9]*
         match self.peek() {
             Some(b'0') => self.i += 1,
             Some(c) if c.is_ascii_digit() => {
@@ -94,17 +91,49 @@ impl<'a> Parser<'a> {
             }
             _ => return Err(format!("invalid number at byte {}", start)),
         }
+        // Fractions / exponents are outside the profile: consume the whole
+        // token so the rejection can quote it the way the reference does.
+        let mut frac = false;
+        let mut expo = false;
+        if self.peek() == Some(b'.') {
+            frac = true;
+            self.i += 1;
+            if !matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                return Err(format!("invalid number at byte {}", self.i));
+            }
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                self.i += 1;
+            }
+        }
+        if matches!(self.peek(), Some(b'e') | Some(b'E')) {
+            expo = true;
+            self.i += 1;
+            if matches!(self.peek(), Some(b'+') | Some(b'-')) {
+                self.i += 1;
+            }
+            if !matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                return Err(format!("invalid number at byte {}", self.i));
+            }
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                self.i += 1;
+            }
+        }
         let text = std::str::from_utf8(&self.b[start..self.i]).unwrap();
-        let magnitude = text.strip_prefix('-').unwrap_or(text);
-        // safe-integer bound: |n| â‰¤ 2^53âˆ’1 (compare digit counts first).
-        if magnitude.len() > 16
-            || (magnitude.len() == 16 && magnitude > "9007199254740991")
-        {
+        if neg {
             return Err(format!("non-canonical number: {}", text));
         }
-        Ok(text.to_string())
+        if !frac && !expo {
+            // safe-integer bound: |n| <= 2^53-1
+            if text.len() > 16 || (text.len() == 16 && text > "9007199254740991") {
+                return Err(format!("non-canonical number: {}", text));
+            }
+            return Ok(text.to_string());
+        }
+        let v: f64 = text
+            .parse()
+            .map_err(|_| format!("invalid number at byte {}", start))?;
+        Err(format!("non-canonical number: {}", js_number_str(v)))
     }
-
     fn string(&mut self) -> Result<String, String> {
         self.expect(b'"')?;
         let mut out = String::from("\"");
@@ -248,6 +277,38 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// Render an f64 the way JavaScript `Number.prototype.toString` does, for
+/// rejection-message wording parity with the reference implementation.
+/// Only called on values already known to be outside the profile.
+fn js_number_str(v: f64) -> String {
+    if v == 0.0 {
+        return "0".to_string();
+    }
+    if v.fract() == 0.0 && v.abs() < 1e21 {
+        return format!("{}", v as i128);
+    }
+    if v.abs() >= 1e21 || v.abs() < 1e-6 {
+        // exponential form, JS style: mantissa e [+|-] exponent
+        let e = format!("{:e}", v); // e.g. "1.5e21", "1e-7"
+        let (mant, exp) = e.split_once('e').unwrap();
+        let mant = trim_number(mant);
+        let n: i32 = exp.parse().unwrap();
+        let sign = if n < 0 { '-' } else { '+' };
+        return format!("{}e{}{}", mant, sign, n.abs());
+    }
+    // shortest round-trip decimal form (Rust's Display for f64 matches)
+    format!("{}", v)
+}
+
+fn trim_number(s: &str) -> &str {
+    if s.contains('.') {
+        let s = s.trim_end_matches('0');
+        s.trim_end_matches('.')
+    } else {
+        s
+    }
+}
+
 fn utf16_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     let av: Vec<u16> = a.encode_utf16().collect();
     let bv: Vec<u16> = b.encode_utf16().collect();
@@ -317,7 +378,7 @@ fn decode_json_string(raw: &str) -> Result<String, String> {
 }
 
 // ---------------------------------------------------------------------------
-// base64 (standard alphabet) â€” tiny decoder, avoids a dependency
+// base64 (standard alphabet) -- tiny decoder, avoids a dependency
 // ---------------------------------------------------------------------------
 
 fn b64_decode(input: &str) -> Result<Vec<u8>, String> {
@@ -358,7 +419,7 @@ fn b64_decode(input: &str) -> Result<Vec<u8>, String> {
 }
 
 // ---------------------------------------------------------------------------
-// PEP/1 event verification (stateless: G1â€“G8 decisive, G9 UNVERIFIABLE)
+// PEP/1 event verification (stateless: G1"G8 decisive, G9 UNVERIFIABLE)
 // ---------------------------------------------------------------------------
 
 pub const DOMAIN: &str = "PiRC1-PEP-v1";
@@ -422,7 +483,7 @@ pub fn verify_signed_event(
         Ok(Report { ok: false, error_code: Some(code.to_string()), steps })
     }
 
-    // G1 SCHEMA â€” closed key set + grammars
+    // G1 SCHEMA -- closed key set + grammars
     const KEYS: [&str; 11] = [
         "v", "app_id", "key_id", "action_class", "action_id", "weight",
         "timestamp", "nonce", "pioneer_uid_hash", "eligibility", "signature",
@@ -519,7 +580,7 @@ pub fn verify_signed_event(
         .ok_or_else(|| "registry: missing pem".to_string())?;
     steps.push(("KEY_ACTIVE".into(), true, false, key_id.clone()));
 
-    // G4 CANONICALIZATION â€” body must re-canonicalize cleanly; the canonical
+    // G4 CANONICALIZATION -- body must re-canonicalize cleanly; the canonical
     // bytes are exactly what G5 signs, so a rejection here is load-bearing.
     let mut body = obj.clone();
     body.remove("signature");
@@ -578,12 +639,12 @@ pub fn verify_signed_event(
     }
     steps.push(("ELIGIBILITY".into(), true, false, uid_hash.clone()));
 
-    // G9 NONCE_REPLAY â€” stateless honesty
+    // G9 NONCE_REPLAY -- stateless honesty
     steps.push((
         "NONCE_REPLAY".into(),
         false,
         true,
-        "UNVERIFIABLE â€” stateless verifier cannot know replay history".into(),
+        "UNVERIFIABLE -- stateless verifier cannot know replay history".into(),
     ));
 
     Ok(Report { ok: true, error_code: None, steps })
