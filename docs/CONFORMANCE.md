@@ -41,9 +41,13 @@ node scripts/conformance.mjs --strict # SKIP counts as failure
 | Language | Location | Scope | Author overlap |
 |---|---|---|---|
 | Node.js | `src/` | full protocol + product layers | project author |
-| Python 3 | `sdk/python/piproof_sdk.py`, `scripts/cross-*.py` | protocol core, from scratch | project author |
+| Python 3 | `sdk/python/` (pip-installable), `scripts/cross-*.py` | protocol core, from scratch | project author |
 | Go | `sdk/go/` | protocol core, from scratch (`crypto/ed25519` stdlib; single pinned dep `golang.org/x/text` because Go ships no Unicode tables) | project author |
+| Rust | `sdk/rust/` | protocol core (std-only canonicalizer; `ed25519-dalek` for the curve); G9 honest-stateless | project author |
+| WebAssembly | `wasm/` (Go→WASM) | browser/edge binding of the Go core | project author |
 
-Three independent-from-each-other codebases agreeing byte-for-byte is strong
-evidence the *specification* is implementable, not merely that one codebase
-works. It is not a substitute for the external audit gating v1.0.
+Four independently-written codebases plus one compiled binding agreeing
+byte-for-byte is strong evidence the *specification* is implementable,
+not merely that one codebase works. It is not a substitute for the
+external audit gating v1.0 — and author-overlap is exactly why
+[EXTERNAL_IMPLEMENTATION.md](EXTERNAL_IMPLEMENTATION.md) exists.

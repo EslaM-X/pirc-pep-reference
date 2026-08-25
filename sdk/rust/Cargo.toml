@@ -1,0 +1,21 @@
+[package]
+name = "piproof"
+version = "1.0.0"
+edition = "2021"
+description = "Independent Rust verifier for the PiProof protocol (PEP/1 + Canonical Profile v1.1)"
+license = "MIT"
+repository = "https://github.com/EslaM-X/piproof"
+keywords = ["ed25519", "verification", "canonical-json", "protocol"]
+categories = ["cryptography", "authentication"]
+
+[lib]
+name = "piproof"
+path = "src/lib.rs"
+
+# Production dependency surface: exactly ONE crate family (the curve math).
+# Canonicalization is implemented std-only so its lexical rules are exact.
+[dependencies]
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+serde_json = "1"

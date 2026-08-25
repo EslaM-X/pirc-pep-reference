@@ -173,7 +173,7 @@ def canonicalize(value, depth=0):
         for raw in value.keys():
             norm = unicodedata.normalize('NFC', raw)
             if norm in seen:
-                raise CanonicalError(f"normalized key collision under NFC: {json.dumps(raw)}")
+                raise CanonicalError(f'normalized key collision under NFC: "{raw}"')
             seen.add(norm)
         # Profile v1.1: sort NFC FORMS (utf-16-BE byte order), not raw keys â€”
         # mirrors src/canonical.js; keeps canon(parse(canon(x))) a fixed point.
@@ -285,8 +285,22 @@ class NonceStore:
                 json.dump(sorted(self.seen), f)
 
 
+def _js_number_str(text):
+    """Format a JSON number literal the way JavaScript Number.prototype.toString
+    does, so rejection messages match the reference implementation's wording."""
+    d = float(text)
+    if d == int(d) and abs(d) < 1e21:
+        return str(int(d))
+    r = repr(d)
+    if "e" not in r:
+        return r
+    mantissa, exp = r.split("e")
+    sign = "+" if not exp.startswith("-") else ""
+    return f"{mantissa}e{sign}{int(exp)}"
+
+
 def _reject_float(text):
-    raise CanonicalError(f"non-canonical number: {text}")
+    raise CanonicalError(f"non-canonical number: {_js_number_str(text)}")
 
 
 def load_json_text(text):

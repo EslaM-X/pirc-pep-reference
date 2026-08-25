@@ -16,7 +16,7 @@ should be read as claiming otherwise. The distinction is the product.
 
 | Level | Status | Evidence held |
 |---|---|---|
-| Cryptographic reference implementation | ✅ **held** | 154 tests, 20/20 named attacks rejected, byte-reproducible vectors, four independent verification implementations (Node + Python + Go + pure-JS) agreeing on Ed25519 *and* canonicalization |
+| Cryptographic reference implementation | ✅ **held** | 152 tests (Node), 20/20 named attacks rejected, byte-reproducible vectors, six independent verification implementations (Node + Python + Go + pure-JS browser + Rust + WASM) agreeing on Ed25519 *and* canonicalization |
 | Security-engineering prototype | ✅ **held** | frozen PEP/1 core, fail-closed posture everywhere, supply-chain pinning, zero runtime dependencies, documented trust boundaries & audit-status honesty; property-based + differential fuzzing suite; layer-governance checker; engineering formal model (docs/FORMAL_MODEL.md); liveness-aware cross-process nonce locking |
 | Production protocol infrastructure | ❌ **not claimed, not yet evidenced** | see the missing-evidence register below |
 
