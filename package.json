@@ -1,7 +1,7 @@
 ﻿{
   "name": "piproof",
-  "version": "0.18.0",
-  "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, a verifiable CLI, and AUREVIA â€” a Pi SDK-integrated cryptographic transparency dashboard.",
+  "version": "0.19.0",
+  "description": "Deterministic reference implementation of Programmable Engagement Proofs (PEP): canonical schemas, Ed25519-signed activity payloads, replay protection, bounded weights, decentralized arbitration court, and a multi-language SDK family (Node, Python, Go, Rust, WASM) verified against public interop vectors.",
   "type": "module",
   "author": {
     "name": "EslaM-X",
@@ -21,6 +21,44 @@
   "bin": {
     "pep": "./src/cli.js",
     "piproof": "./src/cli.js"
+  },
+  "files": [
+    "src/",
+    "docs/",
+    "vectors/",
+    "sdk/python/piproof_sdk.py",
+    "sdk/python/pyproject.toml",
+    "sdk/python/README.md",
+    "sdk/python/test_sdk.py",
+    "sdk/go/*.go",
+    "sdk/go/cmd/**/*.go",
+    "sdk/rust/src/",
+    "sdk/rust/tests/",
+    "wasm/main.go",
+    "wasm/README.md",
+    "SPEC.md",
+    "ADOPTERS.md",
+    "SECURITY_REVIEW.md",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./canonical": "./src/canonical.js",
+    "./events": "./src/events.js",
+    "./verify": "./src/verify.js",
+    "./registry": "./src/registry.js",
+    "./policy": "./src/policy.js",
+    "./passport": "./src/passport.js",
+    "./piproof": "./src/piproof.js",
+    "./dispute": "./src/dispute.js",
+    "./court": "./src/court.js",
+    "./agent-evidence": "./src/agent-evidence.js",
+    "./nonces": "./src/nonces.js",
+    "./constants": "./src/constants.js",
+    "./transparency": "./src/transparency.js",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "test": "node --test",

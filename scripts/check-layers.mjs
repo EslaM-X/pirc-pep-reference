@@ -57,6 +57,7 @@ const L = {
   3: {
     name: 'application',
     modules: [
+      'index.js',       // public entry point — re-exports across layers (v0.19)
       'dispute.js',     // deterministic evidence adjudication
       'sdk.js',         // developer surface (decide, URIs)
       'attacks.js',     // attack suite world-builder (test support)

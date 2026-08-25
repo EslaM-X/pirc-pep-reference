@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-25
+
+### Added — the Open Protocol Phase: prove that others can build
+
+The theme of this release is a role reversal. Every release before it made
+the implementation stronger; this one makes the *specification* strong
+enough that the implementation stops being special. The measure of success
+is no longer "look what we built" but "watch someone build it without us".
+
+- **`SPEC.md`** — the complete standalone protocol specification:
+  Canonical Profile v1.1, PEP/1 events, registry format, the G1–G9 gate
+  order with normative error codes, `h1:` pseudonyms, PiProof/1 and
+  Passport/1 envelopes, court wire format, conformance criteria, and
+  versioning policy. Written from the vectors and constants, not from the
+  source — §11 states the thesis plainly: **Pi is an adapter, not a
+  dependency**.
+- **Rust crate (`sdk/rust/`)** — a fourth independent verifier: hand-written
+  std-only canonicalizer (UTF-16 key ordering, lexical number rules,
+  duplicate-key rejection) plus G1–G9 over `ed25519-dalek`; G9 reported
+  honestly as UNVERIFIABLE in stateless use. Conformance tests run the
+  repository's public 16-vector suite end-to-end. Verified by the new CI
+  job `rust-conformance` on Ubuntu + Windows.
+- **Installable Python package (`sdk/python/`)** — `pyproject.toml`,
+  console script `piproof-verify`, README; `test_sdk.py` runs all
+  canonical vectors plus valid/tamper/revoked/epoch negatives with zero
+  test-framework dependencies (CI job `python-package`, Python 3.10/3.12).
+  Two error messages aligned to the reference wording so cross-language
+  vector matching is exact (`_js_number_str`).
+- **WebAssembly channel (`wasm/`)** — the Go verifier compiled to WASM;
+  smoke driver proves acceptance, **replay burn across calls** (G9 with
+  caller-owned nonce state), and tamper rejection inside Node. CI job
+  `wasm-build`.
+- **`test/pi-independent.test.js`** — the §11 proof by execution: a full
+  lifecycle for `acme-logistics` / `container-42` (registry → signed event
+  → epoch-bound proof → ALLOW, tamper DENY, replay-burn DENY, foreign
+  epoch REGISTRY_ROOT) with no Pi semantics anywhere in the namespace.
+- **Distribution map** ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)) —
+  one table, seven channels, their contracts and versioning rule.
+- **HTTP API reference** ([docs/HTTP_API.md](docs/HTTP_API.md)) — every
+  route, body, and convention of the hosted verifier.
+- **External Implementation Kit**
+  ([docs/EXTERNAL_IMPLEMENTATION.md](docs/EXTERNAL_IMPLEMENTATION.md)) —
+  the published bar for third-party verifiers: what to implement from
+  SPEC.md alone, ground rules, submission checklist, differential-fuzzing
+  gate.
+- **`ADOPTERS.md`** — an adopters table where every row links to a re-runnable
+  CI job, and the third-party section is honestly empty.
+- **`SECURITY_REVIEW.md`** — review scope, methods used, and the public
+  findings ledger (one resolved low finding disclosed; nothing backfilled).
+- **Agent Evidence reframed** ([docs/EVIDENCE_INFRASTRUCTURE.md](docs/EVIDENCE_INFRASTRUCTURE.md))
+  as general proof infrastructure outside any single ecosystem.
+- **npm publish-readiness** — `files`, per-module `exports`, dual `bin`
+  confirmed, engines pinned; `npm pack --dry-run`: 88 files, ~152 kB.
+- **`src/index.js`** — stable public entry point (31 re-exports) backing
+  the `"."` export.
+
+### Fixed
+
+- `sdk/python/piproof_sdk.py`: NFC-collision error now quotes the decoded
+  raw key (was JSON-escaped); non-canonical-number errors now render in
+  JavaScript `Number.toString` form so vector error substrings match
+  across languages.
+- `docs/MATURITY.md`: corrected stale test count (154 → actual).
+
+### Changed
+
+- package.json: version 0.19.0, distribution metadata (`files`, `exports`),
+  refreshed description.
+- README: three new feature rows (open spec, multi-platform distribution,
+  external kit), roadmap XX shipped, project map extended with
+  `sdk/rust`, `wasm/`, `SPEC.md`, `ADOPTERS.md`, `SECURITY_REVIEW.md`.
+- CI: two new matrix jobs (`python-package`, `rust-conformance`) and
+  `wasm-build` — the verification surface now spans four language
+  ecosystems on two operating systems.
+
+### Verification
+
+- `npm run ci`: layers 26 modules / 72 edges · 152/152 tests · attacks
+  20/20 · transparency · vectors byte-reproducible · canonical vectors ·
+  fuzz (quick, seeded) · conformance matrix green.
+- `python sdk/python/test_sdk.py`: ALL GREEN (16 vectors + 4 pipeline cases).
+- `node --test test/pi-independent.test.js`: 3/3.
+- `wasm/smoke.mjs`: ALL GREEN (accept / replay-burn / tamper).
+- Rust crate compiles locally; execution verified in CI (local Application
+  Control blocks running fresh binaries — documented in `sdk/rust/README.md`).
+
 ## [0.18.0] - 2026-08-24
 
 ### Added — the Arbitration Court: decentralized, verifiable adjudication

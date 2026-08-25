@@ -97,6 +97,9 @@ It implements exactly what was discussed there, nothing more:
 | 📐 | **TLA+ model, TLC-checked in CI** *(v0.16.1)* | the stateful core of the formal model — racing verifiers, atomic nonce claim — verified by TLC over its complete 122-state space on every push: INV-04/INV-05 hold ([formal/](formal/)) |
 | 🔒 | **Offline verification gateway** *(v0.17)* | `/gateway` runs the full pipeline in the visitor's browser on a from-scratch pure-JS Ed25519+SHA-512 core — the document never leaves the tab, under a strict CSP; honest gold rows for what offline cannot know ([docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md)) |
 | ⚖️ | **Decentralized Arbitration Court** *(v0.18)* | judges are keys with stake and published fees; verdicts exist only as panel multi-signatures over the exact tally; challenge periods where a challenge IS a replay; an AI division where AI referees argue but can never vote; anchor-ready settlement certificates ([docs/COURT.md](docs/COURT.md), live at `/court`) |
+| 📜 | **Open protocol spec** *(v0.19)* | [`SPEC.md`](SPEC.md) — the complete protocol (Canonical Profile v1.1, PEP/1, h1 pseudonyms, PiProof/1, Passport/1, court wire format) written to be implemented **without reading any source code**; §11: Pi is an adapter, not a dependency |
+| 📦 | **Multi-platform distribution** *(v0.19)* | one pipeline, seven channels: npm · Python package (pip-installable) · Go module · Rust crate · WebAssembly (Go→WASM with cross-call replay burn) · HTTP service · CLI — all validated against the same public vectors ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)) |
+| 🤝 | **External implementation kit** *(v0.19)* | the bar for third-party verifiers is published, not secret: submission checklist, differential fuzzing gate, honest adopters table ([docs/EXTERNAL_IMPLEMENTATION.md](docs/EXTERNAL_IMPLEMENTATION.md), [ADOPTERS.md](ADOPTERS.md), [SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
 | 🎫 | **Evidence Passports** | 1–100 PiProofs under one content-addressed `evidence_root`, pseudonymous subject, shareable via URL fragment; honest binding aggregation (`EPOCH_BOUND` / `LOCAL` / `MIXED`) |
 | 📌 | **Binding classes** *(v0.13)* | every proof is explicitly `EPOCH_BOUND` (pinned to one registry generation) or `LOCAL` (verifies against whatever trusted copy the verifier supplies); policies can require epoch pinning via `require_epoch_bound` |
 | ⚖️ | **Dispute Engine** | **deterministic evidence adjudication layer** — claim→verdict chain, three honest outcomes: VALID / INVALID / UNVERIFIABLE — never a false pass. Not a decentralized arbitration protocol, and never described as one |
@@ -291,9 +294,14 @@ piproof/
 │   ├── redis-nonces.test.js   distributed store vs RESP fixture (child proc)
 │   └── lock-semantics.test.js liveness-aware FileNonceStore locking (v0.15)
 ├── sdk/
-│   ├── python/piproof_sdk.py 🐍 independent pure-Python protocol core + policy subset
-│   └── go/              ★ from-scratch Go protocol core — canonical v1.1, schema,
-│                          G1–G9 pipeline, crypto/ed25519, fuzz driver (v0.16)
+│   ├── python/          🐍 pip-installable package (pyproject + console script,
+│   │                       vector-driven selftest) — independent pure-Python core
+│   ├── go/              ★ from-scratch Go protocol core — canonical v1.1, schema,
+│   │                       G1–G9 pipeline, crypto/ed25519, fuzz driver (v0.16)
+│   └── rust/            🦀 Rust crate — std-only canonicalizer, ed25519-dalek,
+│                           honest-stateless G9, cargo-test conformance (v0.19)
+├── wasm/                ⚙️ Go→WASM build of the verifier + Node smoke driver —
+│                           browser/edge channel with caller-owned nonce state (v0.19)
 ├── formal/
 │   ├── piproof_gates.tla ★ TLA+ model — racing verifiers, INV-04/05 as TLC invariants (v0.16)
 │   └── README.md         how to run it + modeling decisions + roadmap
@@ -312,9 +320,16 @@ piproof/
 │   ├── LAYERS.md                    ★ normative since v0.15: L0…L4 import governance
 │   ├── FORMAL_MODEL.md              ★ engineering formal model — gates, 12 invariants, failure semantics (v0.15)
 │   ├── CONFORMANCE.md               ★ normative since v0.16: how to claim "PiProof compatible"
+│   ├── DISTRIBUTION.md              ★ seven channels, one pipeline (v0.19)
+│   ├── HTTP_API.md                  ★ hosted-verifier contract (v0.19)
+│   ├── EXTERNAL_IMPLEMENTATION.md   ★ the published bar for third-party verifiers (v0.19)
+│   ├── EVIDENCE_INFRASTRUCTURE.md   ★ Agent Evidence as general infrastructure (v0.19)
 │   └── TRANSPARENCY_LOG_DESIGN.md   ★ signed registry transparency-log draft (v1.0 review input)
-├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify + Go conformance + TLC model check
-├── SPEC.md             normative specification
+├── .github/workflows/ci.yml           Node × OS matrix + Python cross-verify + Go conformance +
+│                                        python-package + rust-conformance + wasm-build + TLC
+├── SPEC.md             normative specification (implement from this alone)
+├── ADOPTERS.md         who builds on PiProof — every row links to re-runnable proof
+├── SECURITY_REVIEW.md  review process + public findings ledger
 ├── SECURITY.md         threat model & explicit limitations
 └── TRACEABILITY.md     PR #2 requirement ↔ code ↔ test ↔ attack mapping
 ```
@@ -594,6 +609,7 @@ themselves.
 | XVII | `v0.16.1` | **mechanized verification live**: CI job `formal-tlc` runs TLC on the gate model every push/PR (checksum-pinned tla2tools v1.7.4, Temurin 21) — 122-state space verified; first machine run caught and fixed two real modeling flaws | ✅ shipped |
 | XVIII | `v0.17` | **public gateway & privacy phase**: zero-disclosure offline verification (`/gateway`) — full G1–G9 pipeline in the visitor's browser over a from-scratch pure-JS Ed25519+SHA-512 core (cross-checked against node:crypto in tests), strict CSP, security headers + healthz on the host, public registry export with displayed SHA-256 fingerprint, normative privacy model ([docs/PRIVACY_MODEL.md](docs/PRIVACY_MODEL.md)) | ✅ shipped |
 | XIX | `v0.18` | **decentralized arbitration**: the Dispute Engine's honest disclaimer becomes an honest implementation — judge roster with stakes & capabilities, weighted quorum tallies (pure re-computation, tamper-evident replay), challenge periods where challenging IS replaying, reputation-weighted fee market with deterministic panel assignment, AI agent division under "AI argues; keys decide", multi-signed anchor certificates ready for chain adapters ([docs/COURT.md](docs/COURT.md), `pep court-demo`, live UI at `/court`) | ✅ shipped |
+| XX | `v0.19` | **open protocol phase**: [`SPEC.md`](SPEC.md) — the whole protocol specified for implementers who never read our source; distribution across seven channels (npm · Python pip package · Go module · **Rust crate** · Go→WASM · HTTP · CLI) all conformed against public vectors; pi-independence proven by test (`test/pi-independent.test.js` — acme-logistics/container-42 runs the full pipeline with zero Pi semantics); external implementation kit + honest adopters ledger + security-review process; npm publish-readiness (`files`/`exports`/`bin`, 88-file tarball); CI grows `python-package`, `rust-conformance`, `wasm-build` jobs ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md), [docs/EXTERNAL_IMPLEMENTATION.md](docs/EXTERNAL_IMPLEMENTATION.md)) | ✅ shipped |
 | XI | `v1.0` | frozen after external review & public feedback cycle — the transparency-log draft is its headline artifact | 🔒 gated on review |
 
 > `v1.0` will be tagged **only after** external security review and community
