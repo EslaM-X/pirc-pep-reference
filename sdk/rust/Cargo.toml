@@ -12,13 +12,16 @@ categories = ["cryptography", "authentication"]
 name = "piproof"
 path = "src/lib.rs"
 
-# Production dependency surface: TWO crates total.
-# - ed25519-dalek: the curve math (Rust's standard Ed25519).
-# - serde_json:    JSON value handling for registry/event documents.
-# Everything protocol-specific — the Canonical Profile v1.1 scanner, gate
-# order, grammars — is implemented in this crate, std-only, so its lexical
-# rules stay exact and auditable in one file.
+# Production dependency surface: THREE crates, all ecosystem standards.
+# - ed25519-dalek:          the curve math (Rust's standard Ed25519).
+# - serde_json:             JSON value handling for registry/event documents.
+# - unicode-normalization:  NFC tables (Rust std ships none; Go needed
+#                           golang.org/x/text for the same reason).
+# Everything protocol-specific -- the Canonical Profile v1.1 scanner, gate
+# order, grammars -- is implemented in this crate so its lexical rules
+# stay exact and auditable in one file.
 [dependencies]
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 serde_json = "1"
+unicode-normalization = "0.1"
 

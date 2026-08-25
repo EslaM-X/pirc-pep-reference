@@ -8,6 +8,7 @@
 //! (`tests/conformance.rs`).
 
 use ed25519_dalek::{Signature, VerifyingKey, Verifier};
+use unicode_normalization::UnicodeNormalization;
 
 /// Canonicalize raw JSON text per PiProof Canonical Profile v1.1.
 /// Errors carry the same prefixes as the reference implementation
@@ -54,7 +55,7 @@ impl<'a> Parser<'a> {
         match self.peek() {
             Some(b'{') => self.object(),
             Some(b'[') => self.array(),
-            Some(b'"') => Ok(self.string()?),
+            Some(b'"') => self.string_value(),
             Some(b't') => self.literal("true", "true"),
             Some(b'f') => self.literal("false", "false"),
             Some(b'n') => self.literal("null", "null"),
@@ -134,20 +135,24 @@ impl<'a> Parser<'a> {
             .map_err(|_| format!("invalid number at byte {}", start))?;
         Err(format!("non-canonical number: {}", js_number_str(v)))
     }
-    fn string(&mut self) -> Result<String, String> {
+    /// Scan a JSON string and return its DECODED value (real characters,
+    /// escapes resolved, surrogate pairs combined).
+    fn string_decoded(&mut self) -> Result<String, String> {
         self.expect(b'"')?;
-        let mut out = String::from("\"");
+        let mut out = String::new();
         loop {
             match self.peek() {
                 None => return Err("unterminated string".into()),
                 Some(b'"') => {
                     self.i += 1;
-                    out.push('"');
                     return Ok(out);
                 }
                 Some(b'\\') => {
                     self.i += 1;
-                    let esc = self.peek().ok_or("unterminated escape")?;
+                    let esc = match self.peek() {
+                        Some(e) => e,
+                        None => return Err("unterminated escape".into()),
+                    };
                     self.i += 1;
                     match esc {
                         b'"' => out.push('"'),
@@ -181,7 +186,7 @@ impl<'a> Parser<'a> {
                             } else {
                                 char::from_u32(hi).ok_or("invalid \\u escape")?
                             };
-                            push_minimally_escaped(&mut out, ch);
+                            out.push(ch);
                         }
                         _ => return Err(format!("bad escape \\{}", esc as char)),
                     }
@@ -190,15 +195,31 @@ impl<'a> Parser<'a> {
                     return Err(format!("raw control character at byte {}", self.i))
                 }
                 Some(_) => {
-                    // consume one UTF-8 encoded char, re-emit literally
+                    // consume one UTF-8 encoded char
                     let rest = std::str::from_utf8(&self.b[self.i..])
                         .map_err(|_| "invalid UTF-8".to_string())?;
                     let ch = rest.chars().next().unwrap();
-                    push_minimally_escaped(&mut out, ch);
+                    out.push(ch);
                     self.i += ch.len_utf8();
                 }
             }
         }
+    }
+
+    /// Scan a string value and emit its canonical encoding:
+    /// NFC-normalize first, then minimal escaping.
+    fn string_value(&mut self) -> Result<String, String> {
+        let decoded = self.string_decoded()?;
+        let norm: String = decoded.chars().nfc().collect();
+        Ok(encode_json_string(&norm))
+    }
+
+
+    /// Scan a KEY string: decoded value, NFC-normalized (no re-encode; the
+    /// canonical encoding happens when members are emitted).
+    fn key_nfc(&mut self) -> Result<String, String> {
+        let decoded = self.string_decoded()?;
+        Ok(decoded.chars().nfc().collect())
     }
 
     fn hex4(&mut self) -> Result<u32, String> {
@@ -246,16 +267,16 @@ impl<'a> Parser<'a> {
         }
         loop {
             self.skip_ws();
-            let key_raw = self.string()?;
-            let decoded = decode_json_string(&key_raw)?;
+            // keys are NFC-normalized before duplicate checks and ordering
+            let key_norm = self.key_nfc()?;
             self.skip_ws();
             self.expect(b':')?;
             self.skip_ws();
             let val = self.value()?;
-            if members.iter().any(|(k, _)| *k == decoded) {
-                return Err(format!("duplicate object key: {}", decoded));
+            if members.iter().any(|(k, _)| *k == key_norm) {
+                return Err(format!("duplicate object key: {}", key_norm));
             }
-            members.push((decoded, val));
+            members.push((key_norm, val));
             self.skip_ws();
             match self.peek() {
                 Some(b',') => self.i += 1,
@@ -341,41 +362,6 @@ fn encode_json_string(s: &str) -> String {
     out
 }
 
-fn decode_json_string(raw: &str) -> Result<String, String> {
-    // raw includes the surrounding quotes; reuse the scanner by parsing it.
-    let mut p = Parser { b: raw.as_bytes(), i: 0 };
-    let canonical = p.string()?;
-    // strip quotes, then unescape into real chars
-    let inner = &canonical[1..canonical.len() - 1];
-    let mut out = String::new();
-    let mut chars = inner.chars();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            out.push(c);
-            continue;
-        }
-        match chars.next().ok_or("dangling escape")? {
-            '"' => out.push('"'),
-            '\\' => out.push('\\'),
-            '/' => out.push('/'),
-            'b' => out.push('\u{0008}'),
-            'f' => out.push('\u{000C}'),
-            'n' => out.push('\n'),
-            'r' => out.push('\r'),
-            't' => out.push('\t'),
-            'u' => {
-                let mut v: u32 = 0;
-                for _ in 0..4 {
-                    let d = chars.next().ok_or("bad \\u")?;
-                    v = v * 16 + d.to_digit(16).ok_or("bad \\u digit")?;
-                }
-                out.push(char::from_u32(v).ok_or("bad code point")?);
-            }
-            other => return Err(format!("bad escape \\{}", other)),
-        }
-    }
-    Ok(out)
-}
 
 // ---------------------------------------------------------------------------
 // base64 (standard alphabet) -- tiny decoder, avoids a dependency
