@@ -1,7 +1,7 @@
-//! Independent Rust verifier for the PiProof protocol.
+﻿//! Independent Rust verifier for the PiProof protocol.
 //!
 //! Implements SPEC.md: Canonical JSON Profile v1.1 (std-only, lexical
-//! rules enforced exactly) + PEP/1 event verification (G1–G8; G9 reported
+//! rules enforced exactly) + PEP/1 event verification (G1â€“G8; G9 reported
 //! honestly as UNVERIFIABLE because this library is stateless).
 //!
 //! Conformance is proven against the repository's public vectors
@@ -11,7 +11,7 @@ use ed25519_dalek::{Signature, VerifyingKey, Verifier};
 
 /// Canonicalize raw JSON text per PiProof Canonical Profile v1.1.
 /// Errors carry the same prefixes as the reference implementation
-/// ("non-canonical number: …", "unsupported type: …") so conformance
+/// ("non-canonical number: â€¦", "unsupported type: â€¦") so conformance
 /// vectors can match on them.
 pub fn canonicalize(input: &str) -> Result<String, String> {
     let b = input.as_bytes();
@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
         if self.peek() == Some(b'-') {
             self.i += 1;
         }
-        // integer grammar: 0 | [1-9][0-9]* — no fractions, no exponents.
+        // integer grammar: 0 | [1-9][0-9]* â€” no fractions, no exponents.
         match self.peek() {
             Some(b'0') => self.i += 1,
             Some(c) if c.is_ascii_digit() => {
@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
         }
         let text = std::str::from_utf8(&self.b[start..self.i]).unwrap();
         let magnitude = text.strip_prefix('-').unwrap_or(text);
-        // safe-integer bound: |n| ≤ 2^53−1 (compare digit counts first).
+        // safe-integer bound: |n| â‰¤ 2^53âˆ’1 (compare digit counts first).
         if magnitude.len() > 16
             || (magnitude.len() == 16 && magnitude > "9007199254740991")
         {
@@ -166,6 +166,9 @@ impl<'a> Parser<'a> {
     }
 
     fn hex4(&mut self) -> Result<u32, String> {
+        if self.i + 4 > self.b.len() {
+            return Err("bad \\u: truncated".into());
+        }
         let s = std::str::from_utf8(&self.b[self.i..self.i + 4])
             .map_err(|_| "bad \\u".to_string())?;
         let v = u32::from_str_radix(s, 16).map_err(|_| "bad \\u digits".to_string())?;
@@ -307,7 +310,7 @@ fn decode_json_string(raw: &str) -> Result<String, String> {
 }
 
 // ---------------------------------------------------------------------------
-// base64 (standard alphabet) — tiny decoder, avoids a dependency
+// base64 (standard alphabet) â€” tiny decoder, avoids a dependency
 // ---------------------------------------------------------------------------
 
 fn b64_decode(input: &str) -> Result<Vec<u8>, String> {
@@ -348,7 +351,7 @@ fn b64_decode(input: &str) -> Result<Vec<u8>, String> {
 }
 
 // ---------------------------------------------------------------------------
-// PEP/1 event verification (stateless: G1–G8 decisive, G9 UNVERIFIABLE)
+// PEP/1 event verification (stateless: G1â€“G8 decisive, G9 UNVERIFIABLE)
 // ---------------------------------------------------------------------------
 
 pub const DOMAIN: &str = "PiRC1-PEP-v1";
@@ -408,18 +411,22 @@ pub fn verify_signed_event(
         serde_json::from_str(registry_json).map_err(|e| format!("registry parse: {}", e))?;
 
     let mut steps: Vec<(String, bool, bool, String)> = Vec::new();
-    let fail = |code: &str| Report { ok: false, error_code: Some(code.to_string()), steps };
+    fn fail(steps: Vec<(String, bool, bool, String)>, code: &str) -> Report {
+        Report { ok: false, error_code: Some(code.to_string()), steps }
+    }
 
-    // G1 SCHEMA — closed key set + grammars
+    // G1 SCHEMA â€” closed key set + grammars
     const KEYS: [&str; 11] = [
         "v", "app_id", "key_id", "action_class", "action_id", "weight",
         "timestamp", "nonce", "pioneer_uid_hash", "eligibility", "signature",
     ];
-    let obj = ev.as_object().ok_or("SCHEMA: not an object")?;
+    let obj = ev
+        .as_object()
+        .ok_or_else(|| "SCHEMA: not an object".to_string())?;
     for k in obj.keys() {
         if !KEYS.contains(&k.as_str()) {
             steps.push(("SCHEMA".into(), false, false, format!("unknown field {}", k)));
-            return fail("SCHEMA");
+            return fail(steps, "SCHEMA");
         }
     }
     let get_s = |k: &str| obj.get(k).and_then(|v| v.as_str()).map(str::to_owned);
@@ -429,14 +436,14 @@ pub fn verify_signed_event(
                 Some(v) => v,
                 None => {
                     steps.push(("SCHEMA".into(), false, false, $k.to_string()));
-                    return fail("SCHEMA");
+                    return fail(steps, "SCHEMA");
                 }
             }
         };
     }
     if obj.get("v").and_then(|v| v.as_i64()) != Some(1) {
         steps.push(("SCHEMA".into(), false, false, "unsupported version".into()));
-        return fail("SCHEMA");
+        return fail(steps, "SCHEMA");
     }
     let app_id = need_s!("app_id");
     let key_id = need_s!("key_id");
@@ -446,32 +453,32 @@ pub fn verify_signed_event(
     let uid_hash = need_s!("pioneer_uid_hash");
     if !(ident_ok(&app_id) && ident_ok(&key_id) && ident_ok(&action_id)) {
         steps.push(("SCHEMA".into(), false, false, "identifier grammar".into()));
-        return fail("SCHEMA");
+        return fail(steps, "SCHEMA");
     }
     if !matches!(action_class.as_str(), "A" | "B" | "C") {
         steps.push(("SCHEMA".into(), false, false, "action_class".into()));
-        return fail("SCHEMA");
+        return fail(steps, "SCHEMA");
     }
     if !nonce_ok(&nonce) {
         steps.push(("SCHEMA".into(), false, false, "nonce grammar".into()));
-        return fail("SCHEMA");
+        return fail(steps, "SCHEMA");
     }
     if !uid_hash_ok(&uid_hash) {
         steps.push(("SCHEMA".into(), false, false, "uid hash grammar".into()));
-        return fail("SCHEMA");
+        return fail(steps, "SCHEMA");
     }
     let weight = match obj.get("weight").and_then(|w| w.as_i64()) {
         Some(w) if w >= 1 => w,
         _ => {
             steps.push(("SCHEMA".into(), false, false, "weight".into()));
-            return fail("SCHEMA");
+            return fail(steps, "SCHEMA");
         }
     };
     let timestamp = match obj.get("timestamp").and_then(|t| t.as_i64()) {
         Some(t) => t,
         None => {
             steps.push(("SCHEMA".into(), false, false, "timestamp".into()));
-            return fail("SCHEMA");
+            return fail(steps, "SCHEMA");
         }
     };
     let elig = obj.get("eligibility").cloned().unwrap_or(serde_json::Value::Null);
@@ -485,19 +492,19 @@ pub fn verify_signed_event(
     let key_ptr = format!("{}/keys/{}", app_ptr, esc(&key_id));
     if reg.pointer(&app_ptr).is_none() {
         steps.push(("APP_KNOWN".into(), false, false, app_id.clone()));
-        return fail("UNKNOWN_APP");
+        return fail(steps, "UNKNOWN_APP");
     }
     steps.push(("APP_KNOWN".into(), true, false, app_id.clone()));
     let key_entry = match reg.pointer(&key_ptr) {
         Some(k) => k,
         None => {
             steps.push(("KEY_ACTIVE".into(), false, false, key_id.clone()));
-            return fail("UNKNOWN_KEY");
+            return fail(steps, "UNKNOWN_KEY");
         }
     };
     if key_entry.get("status").and_then(|s| s.as_str()) != Some("active") {
         steps.push(("KEY_ACTIVE".into(), false, false, "revoked".into()));
-        return fail("REVOKED_KEY");
+        return fail(steps, "REVOKED_KEY");
     }
     let pem = key_entry
         .get("public_key_pem")
@@ -505,7 +512,7 @@ pub fn verify_signed_event(
         .ok_or_else(|| "registry: missing pem".to_string())?;
     steps.push(("KEY_ACTIVE".into(), true, false, key_id.clone()));
 
-    // G4 CANONICALIZATION — body must re-canonicalize cleanly; the canonical
+    // G4 CANONICALIZATION â€” body must re-canonicalize cleanly; the canonical
     // bytes are exactly what G5 signs, so a rejection here is load-bearing.
     let mut body = obj.clone();
     body.remove("signature");
@@ -514,29 +521,29 @@ pub fn verify_signed_event(
     steps.push(("CANONICALIZATION".into(), true, false, String::new()));
 
     // G5 SIGNATURE over DOMAIN \n canonical(body)
-    let der = extract_pem_b64(pem).ok_or("registry: bad pem")?;
+    let der = extract_pem_b64(pem).ok_or_else(|| "registry: bad pem".to_string())?;
     if der.len() != 44 {
         return Err(format!("unexpected SPKI length {}", der.len()));
     }
-    let vk = VerifyingKey::from_bytes(der[12..44].try_into().unwrap())
-        .map_err(|e| format!("bad key: {}", e))?;
+    let key32: [u8; 32] = der[12..44].try_into().map_err(|_| "key slice".to_string())?;
+    let vk = VerifyingKey::from_bytes(&key32).map_err(|e| format!("bad key: {}", e))?;
     let sig_bytes = b64_decode(&sig_b64).map_err(|_| "INVALID_SIGNATURE".to_string())?;
     let sig = Signature::from_slice(&sig_bytes).map_err(|_| "INVALID_SIGNATURE".to_string())?;
     let msg = format!("{}\n{}", DOMAIN, canon);
     if vk.verify(msg.as_bytes(), &sig).is_err() {
         steps.push(("SIGNATURE".into(), false, false, String::new()));
-        return fail("INVALID_SIGNATURE");
+        return fail(steps, "INVALID_SIGNATURE");
     }
     steps.push(("SIGNATURE".into(), true, false, String::new()));
 
     // G6 TIMESTAMP_FRESHNESS
     if timestamp < now_ms - TIMESTAMP_WINDOW_MS {
         steps.push(("TIMESTAMP_FRESHNESS".into(), false, false, "expired".into()));
-        return fail("TIMESTAMP_EXPIRED");
+        return fail(steps, "TIMESTAMP_EXPIRED");
     }
     if timestamp > now_ms + TIMESTAMP_WINDOW_MS {
         steps.push(("TIMESTAMP_FRESHNESS".into(), false, false, "future".into()));
-        return fail("TIMESTAMP_IN_FUTURE");
+        return fail(steps, "TIMESTAMP_IN_FUTURE");
     }
     steps.push(("TIMESTAMP_FRESHNESS".into(), true, false, String::new()));
 
@@ -548,7 +555,7 @@ pub fn verify_signed_event(
     };
     if weight > ceiling {
         steps.push(("WEIGHT_BOUND".into(), false, false, weight.to_string()));
-        return fail("WEIGHT_OVERFLOW");
+        return fail(steps, "WEIGHT_OVERFLOW");
     }
     steps.push(("WEIGHT_BOUND".into(), true, false, String::new()));
 
@@ -560,16 +567,16 @@ pub fn verify_signed_event(
     };
     if !ok {
         steps.push(("ELIGIBILITY".into(), false, false, uid_hash.clone()));
-        return fail("INELIGIBLE_USER");
+        return fail(steps, "INELIGIBLE_USER");
     }
     steps.push(("ELIGIBILITY".into(), true, false, uid_hash.clone()));
 
-    // G9 NONCE_REPLAY — stateless honesty
+    // G9 NONCE_REPLAY â€” stateless honesty
     steps.push((
         "NONCE_REPLAY".into(),
         false,
         true,
-        "UNVERIFIABLE — stateless verifier cannot know replay history".into(),
+        "UNVERIFIABLE â€” stateless verifier cannot know replay history".into(),
     ));
 
     Ok(Report { ok: true, error_code: None, steps })

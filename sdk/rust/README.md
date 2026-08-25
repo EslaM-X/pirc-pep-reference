@@ -13,11 +13,13 @@ Independent Rust verifier for the PiProof protocol — see [`SPEC.md`](../../SPE
 
 ## Dependency policy
 
-Production code depends on exactly one crate family — `ed25519-dalek`
-(the Rust ecosystem's standard curve implementation, analogous to Go's
-`crypto/ed25519`). Everything protocol-specific is in this crate so the
-*protocol logic* stays auditable in one file. Tests additionally use
-`serde_json` as a dev-dependency for vector loading only.
+Production code depends on exactly two crates: `ed25519-dalek` (the Rust
+ecosystem's standard curve implementation, analogous to Go's
+`crypto/ed25519`) and `serde_json` (JSON value handling for registry and
+event documents). Everything protocol-specific — the Canonical Profile
+v1.1 scanner, the G1–G9 gate order, identifier/nonce/hash grammars — is
+implemented in this crate, std-only, so the *protocol logic* stays
+auditable in one file.
 
 ## Usage
 
