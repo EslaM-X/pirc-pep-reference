@@ -411,8 +411,8 @@ pub fn verify_signed_event(
         serde_json::from_str(registry_json).map_err(|e| format!("registry parse: {}", e))?;
 
     let mut steps: Vec<(String, bool, bool, String)> = Vec::new();
-    fn fail(steps: Vec<(String, bool, bool, String)>, code: &str) -> Report {
-        Report { ok: false, error_code: Some(code.to_string()), steps }
+    fn fail(steps: Vec<(String, bool, bool, String)>, code: &str) -> Result<Report, String> {
+        Ok(Report { ok: false, error_code: Some(code.to_string()), steps })
     }
 
     // G1 SCHEMA â€” closed key set + grammars
